@@ -239,6 +239,7 @@ export function App() {
                 onNavigateToVote={() => setActiveTab('vote')}
                 onNavigateToReport={() => setActiveTab('report')}
                 onNavigateToDashboard={() => setActiveTab('dashboard')}
+                onOpenEmbed={() => setEmbedModalOpen(true)}
                 darkMode={darkMode}
               />
             )}
