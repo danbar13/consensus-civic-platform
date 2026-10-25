@@ -50,24 +50,33 @@ export const Header: React.FC<HeaderProps> = ({
 
   if (isEmbed) {
     return (
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* YomYom Eilat logo in embed */}
           <a href="https://www.yomyom.net/" target="_blank" rel="noreferrer" className="block shrink-0">
             <img 
               src={darkMode ? "/images/yomyom-logo-white.png" : "/images/yomyom-logo.png"} 
               alt="יום יום באילת" 
-              className="h-6 w-auto object-contain"
+              className="h-7 w-auto object-contain"
               onError={(e) => {
                 // Fallback to text if image fails to load
                 (e.target as HTMLElement).style.display = 'none';
               }}
             />
           </a>
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700" />
-          <div>
-            <div className="text-xs font-bold text-blue-900 dark:text-blue-300 tracking-tight">קונצנזוס | המצפן העירוני</div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[200px] sm:max-w-xs">{currentTopic?.title}</div>
+          <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 uppercase tracking-tight">
+                המצפן העירוני
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold truncate hidden sm:inline">
+                ערב ערב באילת
+              </span>
+            </div>
+            <div className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-white truncate" title={currentTopic?.title}>
+              {currentTopic?.title}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-xs">

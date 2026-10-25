@@ -190,6 +190,33 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </div>
       )}
 
+      {/* 0. PROMINENT POLL TOPIC BANNER */}
+      <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-blue-800/40 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-slate-950 shadow-xs">
+              נושא המשאל
+            </span>
+            <span className="text-xs text-blue-200 font-bold">
+              {topic.organization}
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+            {statements.length} היגדים להצבעה
+          </span>
+        </div>
+
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight tracking-tight pt-1">
+          {topic.title}
+        </h1>
+
+        {topic.subtitle && (
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal pt-0.5">
+            {topic.subtitle}
+          </p>
+        )}
+      </div>
+
       {/* 1. STAKEHOLDER GROUP SELECTOR & ANONYMITY BADGE */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
