@@ -27,7 +27,8 @@ if (!isVercel) {
 
 if (!rawDb) {
   isSqlJs = true;
-  const initSqlJs = (await import('sql.js')).default;
+  // Use inline wasm bundle so no external .wasm asset file is needed on Vercel/serverless
+  const initSqlJs = (await import('sql.js/dist/sql-wasm-inline.js')).default;
   const SQL = await initSqlJs();
   if (fs.existsSync(dbPath)) {
     try {
