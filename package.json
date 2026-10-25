@@ -1,0 +1,37 @@
+{
+  "name": "consensus-civic-platform",
+  "version": "1.0.0",
+  "description": "Civic Consensus & Deliberation Platform inspired by Polis and Talk to the City",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "server": "node server/index.js",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm run build --prefix client"
+  },
+  "keywords": [
+    "polis",
+    "consensus",
+    "civic-tech",
+    "mediation",
+    "gemini",
+    "hebrew",
+    "rtl"
+  ],
+  "author": "DANBAR AI",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^2.31.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "sql.js": "^1.15.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^13.0.3"
+  }
+}
