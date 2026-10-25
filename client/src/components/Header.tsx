@@ -71,6 +71,14 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
+          <a
+            href="/?tab=pitch"
+            target="_top"
+            className="px-2 py-1 rounded-md text-amber-500 dark:text-amber-400 hover:underline font-bold transition"
+            title="חזרה לדף הנחיתה וההצעה למקבלי החלטות"
+          >
+            חזור לדף הנחיתה ↩
+          </a>
           <button
             onClick={onToggleDarkMode}
             className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition"
@@ -327,7 +335,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="הצעה אסטרטגית למערכת ערב ערב באילת"
             >
               <Briefcase className="w-4 h-4 text-amber-400" />
-              <span>למקבלי החלטות (ערב ערב) 💼</span>
+              <span>{activeTab === 'pitch' ? 'דף נחיתה והצעה 💼' : 'חזור לדף הנחיתה ↩️'}</span>
             </button>
           </nav>
         </div>

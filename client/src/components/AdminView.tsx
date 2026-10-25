@@ -41,6 +41,7 @@ interface AdminViewProps {
   onTopicDeleted: (deletedId: string) => void;
   onStatementsChanged: () => void;
   onSelectTopic: (topicId: string) => void;
+  onReturnToPitch?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -50,7 +51,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onTopicUpdated,
   onTopicDeleted,
   onStatementsChanged,
-  onSelectTopic
+  onSelectTopic,
+  onReturnToPitch
 }) => {
   const [statements, setStatements] = useState<Statement[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -312,8 +314,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const isCurrentTopicEditable = currentVotesCount === 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       
+      {/* Back to Pitch Deck button if launched from pitch */}
+      {onReturnToPitch && (
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 shadow-xs">
+          <div className="text-xs font-bold text-amber-950 dark:text-amber-200">
+            אתה צופה במערכת הניהול והסינון של "המצפן העירוני"
+          </div>
+          <button
+            onClick={onReturnToPitch}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs shadow-xs transition"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>חזור לדף הנחיתה ↩️</span>
+          </button>
+        </div>
+      )}
+
       {/* SUCCESS TOAST */}
       {actionSuccess && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-200 text-sm font-bold flex items-center gap-2 animate-in fade-in">

@@ -14,7 +14,8 @@ import {
   ChevronDown, 
   ChevronUp, 
   ShieldAlert,
-  ArrowLeft
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 
 interface VoteViewProps {
@@ -27,6 +28,7 @@ interface VoteViewProps {
   onVoteCast: (statementId: number, voteVal: number, microInsight?: any) => void;
   onStatementAdded: (statement: Statement) => void;
   onNavigateToDashboard: () => void;
+  onReturnToPitch?: () => void;
 }
 
 export const VoteView: React.FC<VoteViewProps> = ({
@@ -38,7 +40,8 @@ export const VoteView: React.FC<VoteViewProps> = ({
   onChangeGroup,
   onVoteCast,
   onStatementAdded,
-  onNavigateToDashboard
+  onNavigateToDashboard,
+  onReturnToPitch
 }) => {
   const [submittingVote, setSubmittingVote] = useState(false);
   const [microInsight, setMicroInsight] = useState<{ text: string; percent: number } | null>(null);
@@ -171,6 +174,22 @@ export const VoteView: React.FC<VoteViewProps> = ({
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       
+      {/* Back to Pitch Deck button if launched from pitch */}
+      {onReturnToPitch && (
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 shadow-xs">
+          <div className="text-xs font-bold text-amber-950 dark:text-amber-200">
+            אתה צופה בווידג'ט ההצבעה החי של "המצפן העירוני"
+          </div>
+          <button
+            onClick={onReturnToPitch}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs shadow-xs transition"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>חזור לדף הנחיתה ↩️</span>
+          </button>
+        </div>
+      )}
+
       {/* 1. STAKEHOLDER GROUP SELECTOR & ANONYMITY BADGE */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">

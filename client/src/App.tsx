@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
 import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes } from './api';
 import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
@@ -168,6 +169,23 @@ export function App() {
         onToggleDarkMode={toggleDarkMode}
       />
 
+      {/* Return to Pitch Deck Banner when navigating away from pitch */}
+      {activeTab !== 'pitch' && !isEmbed && (
+        <div className="bg-amber-400 text-slate-950 px-4 py-2 flex items-center justify-between text-xs font-bold shadow-xs sticky top-0 z-40 border-b border-amber-500">
+          <div className="flex items-center gap-2">
+            <span>המצפן העירוני – ערב ערב באילת</span>
+            <span className="text-slate-800 font-normal hidden sm:inline">| אתה צופה במערכת הפעילה</span>
+          </div>
+          <button
+            onClick={() => setActiveTab('pitch')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-white transition text-xs font-black shadow-xs"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>חזור לדף הנחיתה ↩️</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
         {currentTopic && analytics && (
@@ -183,6 +201,7 @@ export function App() {
                 onVoteCast={handleVoteCast}
                 onStatementAdded={handleStatementAdded}
                 onNavigateToDashboard={() => setActiveTab('dashboard')}
+                onReturnToPitch={() => setActiveTab('pitch')}
               />
             )}
 
@@ -230,16 +249,14 @@ export function App() {
                 }}
                 onStatementsChanged={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onSelectTopic={handleSelectTopic}
+                onReturnToPitch={() => setActiveTab('pitch')}
               />
             )}
 
             {activeTab === 'pitch' && (
               <PitchDeckView
-                currentTopic={currentTopic}
-                onNavigateToVote={() => setActiveTab('vote')}
-                onNavigateToReport={() => setActiveTab('report')}
-                onNavigateToDashboard={() => setActiveTab('dashboard')}
-                onOpenEmbed={() => setEmbedModalOpen(true)}
+                onNavigateToAdmin={() => setActiveTab('admin')}
+                onNavigateToWidget={() => setActiveTab('vote')}
                 darkMode={darkMode}
               />
             )}
