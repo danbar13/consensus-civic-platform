@@ -8,11 +8,12 @@ import { ConsensusDashboard } from './components/ConsensusDashboard';
 import { AIReportView } from './components/AIReportView';
 import { AdminView } from './components/AdminView';
 import { EmbedModal } from './components/EmbedModal';
+import { PitchDeckView } from './components/PitchDeckView';
 
 export function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [currentTopic, setCurrentTopic] = useState<Topic | null>(null);
-  const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin'>('vote');
+  const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>('vote');
   const [analytics, setAnalytics] = useState<TopicAnalytics | null>(null);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>({});
@@ -47,11 +48,17 @@ export function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const isEmbed = urlParams.get('embed') === 'true';
   const initialTopicSlug = urlParams.get('topic') || 'eilat-parking';
+  const initialTabParam = urlParams.get('tab');
+  const isPitchParam = urlParams.get('pitch') === 'true';
 
   // Initialize session and topics on mount
   useEffect(() => {
     const sid = getOrCreateSessionId();
     setSessionId(sid);
+
+    if (isPitchParam || initialTabParam === 'pitch') {
+      setActiveTab('pitch');
+    }
 
     async function init() {
       try {
@@ -225,6 +232,16 @@ export function App() {
                 onSelectTopic={handleSelectTopic}
               />
             )}
+
+            {activeTab === 'pitch' && (
+              <PitchDeckView
+                currentTopic={currentTopic}
+                onNavigateToVote={() => setActiveTab('vote')}
+                onNavigateToReport={() => setActiveTab('report')}
+                onNavigateToDashboard={() => setActiveTab('dashboard')}
+                darkMode={darkMode}
+              />
+            )}
           </>
         )}
       </main>
@@ -267,6 +284,15 @@ export function App() {
             <p className="text-slate-500 max-w-xl mx-auto leading-relaxed">
               פותח בהשראת עקרונות הדמוקרטיה החישובית של Polis ו-Talk to the City, בשילוב מנגנון גישור לשון הרע ומחולל דוחות מבוסס AI.
             </p>
+
+            <div className="pt-1">
+              <button
+                onClick={() => setActiveTab('pitch')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition shadow-sm"
+              >
+                <span>הצעה אסטרטגית למערכת "ערב ערב באילת" 💼</span>
+              </button>
+            </div>
 
             <div className="text-[11px] text-slate-600 pt-2">
               כל ההצבעות נשמרות באופן אנונימי מבוסס מזהה סשן בלבד, ללא מעקב אישי או מסירת פרטים מזהים.
