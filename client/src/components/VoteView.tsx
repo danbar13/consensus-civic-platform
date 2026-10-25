@@ -15,7 +15,9 @@ import {
   ChevronUp, 
   ShieldAlert,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Clock,
+  Lock
 } from 'lucide-react';
 
 interface VoteViewProps {
@@ -67,9 +69,23 @@ export const VoteView: React.FC<VoteViewProps> = ({
   const votedCount = approvedStatements.filter(s => userVotes[s.id] !== undefined).length;
   const progressPercent = totalCount > 0 ? Math.round((votedCount / totalCount) * 100) : 0;
 
+  const isClosed = Boolean(topic.closes_at && new Date(topic.closes_at).getTime() < Date.now());
+
+  const getClosingDetails = (closesAt?: string | null) => {
+    if (!closesAt) return null;
+    const d = new Date(closesAt);
+    if (isNaN(d.getTime())) return null;
+    const isPast = d.getTime() < Date.now();
+    const dateStr = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    return { isPast, formatted: `${dateStr} בשעה ${timeStr}` };
+  };
+
+  const closingInfo = getClosingDetails(topic.closes_at);
+
   // Handle single vote
   const handleVote = async (statementId: number, voteVal: number) => {
-    if (submittingVote) return;
+    if (submittingVote || isClosed) return;
     setSubmittingVote(true);
 
     try {
@@ -106,7 +122,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
-      if (!currentStatement) return;
+      if (!currentStatement || isClosed) return;
 
       if (e.key === 'ArrowRight' || e.key === '1') {
         handleVote(currentStatement.id, 1);
@@ -201,9 +217,21 @@ export const VoteView: React.FC<VoteViewProps> = ({
               {topic.organization}
             </span>
           </div>
-          <span className="text-[11px] text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
-            {statements.length} היגדים להצבעה
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {closingInfo && (
+              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs ${
+                isClosed
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-white/15 text-slate-200 backdrop-blur-xs'
+              }`}>
+                <Clock className="w-3 h-3 text-amber-300" />
+                <span>{isClosed ? `המשאל נסגר (${closingInfo.formatted})` : `מועד סגירה: ${closingInfo.formatted}`}</span>
+              </span>
+            )}
+            <span className="text-[11px] text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+              {statements.length} היגדים להצבעה
+            </span>
+          </div>
         </div>
 
         <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight tracking-tight pt-1">
@@ -216,6 +244,31 @@ export const VoteView: React.FC<VoteViewProps> = ({
           </p>
         )}
       </div>
+
+      {/* Closed Poll Alert Banner */}
+      {isClosed && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-300 dark:border-rose-900/70 text-rose-950 dark:text-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-rose-200 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-black text-sm sm:text-base text-rose-950 dark:text-rose-200">
+                משאל זה נסגר להצבעות
+              </div>
+              <div className="text-xs sm:text-sm text-rose-800 dark:text-rose-300/90 mt-0.5">
+                מועד סגירת המשאל חלף ({closingInfo?.formatted}). לא ניתן להוסיף הצבעות או להגיש היגדים חדשים.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onNavigateToDashboard}
+            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-sm transition whitespace-nowrap self-start sm:self-auto flex items-center gap-1.5"
+          >
+            <span>צפה במפת ההסכמות 📊</span>
+          </button>
+        </div>
+      )}
 
       {/* 1. STAKEHOLDER GROUP SELECTOR & ANONYMITY BADGE */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
@@ -313,8 +366,9 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {/* Agree Button */}
             <button
               onClick={() => handleVote(currentStatement.id, 1)}
-              disabled={submittingVote}
-              className="flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-emerald-700/20 transition group"
+              disabled={submittingVote || isClosed}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-emerald-700/20 transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
               <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
               <span>מסכים</span>
@@ -326,8 +380,9 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {/* Disagree Button */}
             <button
               onClick={() => handleVote(currentStatement.id, -1)}
-              disabled={submittingVote}
-              className="flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-rose-700/20 transition group"
+              disabled={submittingVote || isClosed}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-rose-700/20 transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
               <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
               <span>לא מסכים</span>
@@ -339,8 +394,9 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {/* Pass / Neutral Button */}
             <button
               onClick={() => handleVote(currentStatement.id, 0)}
-              disabled={submittingVote}
-              className="flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 font-bold text-sm sm:text-base transition group"
+              disabled={submittingVote || isClosed}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 font-bold text-sm sm:text-base transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
               <SkipForward className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:scale-110 transition-transform" />
               <span>מדלג / ניטרלי</span>
@@ -410,7 +466,10 @@ export const VoteView: React.FC<VoteViewProps> = ({
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           onClick={() => handleVote(st.id, 1)}
+                          disabled={isClosed}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                            isClosed ? 'opacity-50 cursor-not-allowed ' : ''
+                          }${
                             currentVote === 1
                               ? 'bg-emerald-600 text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -422,7 +481,10 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
                         <button
                           onClick={() => handleVote(st.id, -1)}
+                          disabled={isClosed}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                            isClosed ? 'opacity-50 cursor-not-allowed ' : ''
+                          }${
                             currentVote === -1
                               ? 'bg-rose-600 text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -434,7 +496,10 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
                         <button
                           onClick={() => handleVote(st.id, 0)}
+                          disabled={isClosed}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                            isClosed ? 'opacity-50 cursor-not-allowed ' : ''
+                          }${
                             currentVote === 0
                               ? 'bg-slate-700 text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -468,107 +533,116 @@ export const VoteView: React.FC<VoteViewProps> = ({
           </div>
         </div>
 
-        {/* Input Box */}
-        <div className="relative">
-          <textarea
-            value={newText}
-            onChange={e => {
-              if (e.target.value.length <= 140) {
-                setNewText(e.target.value);
-                setModerationFeedback(null);
-              }
-            }}
-            placeholder="לדוגמה: להקצות מקומות חניה מוסדרים לטווח קצר עם תו תושב..."
-            rows={3}
-            className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/50 outline-none text-sm sm:text-base leading-relaxed resize-none transition"
-          />
-          <div className="absolute bottom-3 left-3 text-xs font-semibold text-slate-400 dark:text-slate-500">
-            <span className={newText.length > 120 ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}>
-              {newText.length}
-            </span>
-            /140 תווים
+        {isClosed ? (
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-semibold flex items-center gap-2.5">
+            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>המשאל נסגר להצבעות והיגדים נוספים. לא ניתן להגיש הצעות חדשות.</span>
           </div>
-        </div>
-
-        {/* Feedback Alert / AI Reframing Card */}
-        {moderationFeedback && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 space-y-3 animate-in fade-in">
-            <div className="flex items-start gap-2.5">
-              <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="text-sm font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span>הצעת המגשר החכם (AI Guardrail)</span>
-                </div>
-                <p className="text-xs sm:text-sm text-amber-900/90 dark:text-amber-300 mt-1 leading-relaxed">
-                  {moderationFeedback.reason}
-                </p>
+        ) : (
+          <>
+            {/* Input Box */}
+            <div className="relative">
+              <textarea
+                value={newText}
+                onChange={e => {
+                  if (e.target.value.length <= 140) {
+                    setNewText(e.target.value);
+                    setModerationFeedback(null);
+                  }
+                }}
+                placeholder="לדוגמה: להקצות מקומות חניה מוסדרים לטווח קצר עם תו תושב..."
+                rows={3}
+                className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/50 outline-none text-sm sm:text-base leading-relaxed resize-none transition"
+              />
+              <div className="absolute bottom-3 left-3 text-xs font-semibold text-slate-400 dark:text-slate-500">
+                <span className={newText.length > 120 ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}>
+                  {newText.length}
+                </span>
+                /140 תווים
               </div>
             </div>
 
-            {moderationFeedback.suggestion && (
-              <div className="bg-white/80 dark:bg-slate-900/90 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
-                <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                  ניסוח מומלץ שיכול לזכות בהסכמה רחבה יותר מכל הצדדים:
+            {/* Feedback Alert / AI Reframing Card */}
+            {moderationFeedback && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 space-y-3 animate-in fade-in">
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span>הצעת המגשר החכם (AI Guardrail)</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-amber-900/90 dark:text-amber-300 mt-1 leading-relaxed">
+                      {moderationFeedback.reason}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                  "{moderationFeedback.suggestion}"
-                </div>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleAddStatementSubmit(moderationFeedback.suggestion)}
-                    disabled={isEvaluatingAI}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>אמץ את ניסוח המגשר ושלח עכשיו</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNewText(moderationFeedback.suggestion || '');
-                      setModerationFeedback(null);
-                    }}
-                    className="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition"
-                  >
-                    העתק לתיבה וערוך בעצמי
-                  </button>
-                </div>
+
+                {moderationFeedback.suggestion && (
+                  <div className="bg-white/80 dark:bg-slate-900/90 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
+                    <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                      ניסוח מומלץ שיכול לזכות בהסכמה רחבה יותר מכל הצדדים:
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                      "{moderationFeedback.suggestion}"
+                    </div>
+                    <div className="pt-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleAddStatementSubmit(moderationFeedback.suggestion)}
+                        disabled={isEvaluatingAI}
+                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>אמץ את ניסוח המגשר ושלח עכשיו</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setNewText(moderationFeedback.suggestion || '');
+                          setModerationFeedback(null);
+                        }}
+                        className="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition"
+                      >
+                        העתק לתיבה וערוך בעצמי
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Success Toast */}
-        {submitSuccessMsg && (
-          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-sm font-bold flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>{submitSuccessMsg}</span>
-          </div>
-        )}
-
-        {/* Submit Button */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            ההצעה תתווסף תחת קבוצת: <span className="font-bold text-slate-800 dark:text-slate-200">{activeGroupObj.label}</span>
-          </div>
-          <button
-            onClick={() => handleAddStatementSubmit()}
-            disabled={isEvaluatingAI || newText.trim().length < 5}
-            className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-sm transition flex items-center gap-2"
-          >
-            {isEvaluatingAI ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>בודק ב-AI...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>בדיקת ניסוח ושליחה</span>
-              </>
+            {/* Success Toast */}
+            {submitSuccessMsg && (
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-sm font-bold flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>{submitSuccessMsg}</span>
+              </div>
             )}
-          </button>
-        </div>
+
+            {/* Submit Button */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                ההצעה תתווסף תחת קבוצת: <span className="font-bold text-slate-800 dark:text-slate-200">{activeGroupObj.label}</span>
+              </div>
+              <button
+                onClick={() => handleAddStatementSubmit()}
+                disabled={isEvaluatingAI || newText.trim().length < 5}
+                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-sm transition flex items-center gap-2"
+              >
+                {isEvaluatingAI ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>בודק ב-AI...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>בדיקת ניסוח ושליחה</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
     </div>

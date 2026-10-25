@@ -72,7 +72,7 @@ app.get('/api/topics/:id', (req, res) => {
 // Create new topic
 app.post('/api/topics', (req, res) => {
   try {
-    const { id, title, subtitle, organization, category, groups, initialStatements } = req.body;
+    const { id, title, subtitle, organization, category, groups, initialStatements, closes_at } = req.body;
     
     if (!title || !organization || !groups || groups.length === 0) {
       return res.status(400).json({ error: 'Missing required topic fields' });
@@ -93,8 +93,8 @@ app.post('/api/topics', (req, res) => {
     const now = new Date().toISOString();
 
     const insertTopic = db.prepare(`
-      INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at, closes_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insertTopic.run(
@@ -105,7 +105,8 @@ app.post('/api/topics', (req, res) => {
       organization,
       category || 'municipal',
       JSON.stringify(groups),
-      now
+      now,
+      closes_at || null
     );
 
     // Insert the validated seed statements
@@ -144,19 +145,20 @@ app.patch('/api/topics/:id', (req, res) => {
       });
     }
 
-    const { title, subtitle, organization, category, groups } = req.body;
+    const { title, subtitle, organization, category, groups, closes_at } = req.body;
 
     const newTitle = title !== undefined ? title.trim() : topic.title;
     const newSubtitle = subtitle !== undefined ? subtitle.trim() : topic.subtitle;
     const newOrg = organization !== undefined ? organization.trim() : topic.organization;
     const newCategory = category !== undefined ? category : topic.category;
     const newGroupsJson = groups !== undefined ? JSON.stringify(groups) : topic.groups_json;
+    const newClosesAt = closes_at !== undefined ? closes_at : topic.closes_at;
 
     db.prepare(`
       UPDATE topics 
-      SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?
+      SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, closes_at = ?
       WHERE id = ?
-    `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, topicId);
+    `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newClosesAt, topicId);
 
     const updated = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
     updated.groups = JSON.parse(updated.groups_json);
@@ -231,6 +233,10 @@ app.post('/api/topics/:id/statements', async (req, res) => {
 
     const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(req.params.id);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
+
+    if (topic.closes_at && new Date(topic.closes_at) < new Date()) {
+      return res.status(403).json({ error: 'המשאל נסגר להגשת היגדים נוספים.', isClosed: true });
+    }
 
     // Optional fast check: if author is an editor/admin or pre-moderated
     const moderation = await moderateStatement({
@@ -315,6 +321,11 @@ app.post('/api/votes', (req, res) => {
     const voteVal = Number(vote); // 1 = Agree, -1 = Disagree, 0 = Pass
     if (![1, -1, 0].includes(voteVal)) {
       return res.status(400).json({ error: 'Invalid vote value. Must be 1, -1, or 0' });
+    }
+
+    const topic = db.prepare('SELECT closes_at FROM topics WHERE id = ?').get(topic_id);
+    if (topic && topic.closes_at && new Date(topic.closes_at) < new Date()) {
+      return res.status(403).json({ error: 'המשאל נסגר להצבעות.', isClosed: true });
     }
 
     const now = new Date().toISOString();

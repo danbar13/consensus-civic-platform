@@ -15,7 +15,8 @@ import {
   Briefcase,
   Moon,
   Sun,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -73,6 +74,21 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold truncate hidden sm:inline">
                 ערב ערב באילת
               </span>
+              {currentTopic?.closes_at && (() => {
+                const isPast = new Date(currentTopic.closes_at).getTime() < Date.now();
+                const d = new Date(currentTopic.closes_at);
+                const shortDate = `${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+                return (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold flex items-center gap-1 ${
+                    isPast 
+                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300' 
+                      : 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300'
+                  }`}>
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>{isPast ? 'נסגר' : `עד ${shortDate}`}</span>
+                  </span>
+                );
+              })()}
             </div>
             <div className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-white truncate" title={currentTopic?.title}>
               {currentTopic?.title}

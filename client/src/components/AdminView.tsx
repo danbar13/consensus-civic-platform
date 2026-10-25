@@ -30,7 +30,9 @@ import {
   Unlock,
   Settings,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Clock,
+  CalendarClock
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -66,6 +68,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newTopicSubtitle, setNewTopicSubtitle] = useState('');
   const [newTopicOrg, setNewTopicOrg] = useState('ערב ערב באילת – המצפן העירוני');
   const [newTopicCategory, setNewTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
+  const [newTopicClosesAt, setNewTopicClosesAt] = useState<string>('');
   const [newTopicGroups, setNewTopicGroups] = useState([
     { id: 'group1', label: 'תושבי העיר', color: '#2563eb' },
     { id: 'group2', label: 'בעלי עסקים ומסחר', color: '#d97706' },
@@ -84,6 +87,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editTopicSubtitle, setEditTopicSubtitle] = useState('');
   const [editTopicOrg, setEditTopicOrg] = useState('');
   const [editTopicCategory, setEditTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
+  const [editTopicClosesAt, setEditTopicClosesAt] = useState<string>('');
   const [editTopicGroups, setEditTopicGroups] = useState<{ id: string; label: string; color: string }[]>([]);
   const [updatingTopic, setUpdatingTopic] = useState(false);
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
@@ -135,6 +139,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setEditTopicOrg(t.organization);
     setEditTopicCategory(t.category);
     setEditTopicGroups(t.groups || []);
+    if (t.closes_at) {
+      const d = new Date(t.closes_at);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setEditTopicClosesAt(d.toISOString().slice(0, 16));
+    } else {
+      setEditTopicClosesAt('');
+    }
     setEditErrorMessage(null);
     setShowEditTopicModal(true);
   };
@@ -155,7 +166,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         subtitle: editTopicSubtitle.trim(),
         organization: editTopicOrg.trim(),
         category: editTopicCategory,
-        groups: editTopicGroups
+        groups: editTopicGroups,
+        closes_at: editTopicClosesAt ? new Date(editTopicClosesAt).toISOString() : null
       });
 
       setShowEditTopicModal(false);
@@ -281,13 +293,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
         organization: newTopicOrg.trim(),
         category: newTopicCategory,
         groups: newTopicGroups,
-        initialStatements: selectedStatements
+        initialStatements: selectedStatements,
+        closes_at: newTopicClosesAt ? new Date(newTopicClosesAt).toISOString() : null
       });
 
       setShowNewTopicModal(false);
       setSelectedStatements([]);
       setNewTopicTitle('');
       setNewTopicSubtitle('');
+      setNewTopicClosesAt('');
       onTopicCreated(created);
     } catch (err: any) {
       console.error('Error creating topic:', err);
@@ -312,6 +326,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Votes status for current topic (determine if editable)
   const currentVotesCount = currentTopic.stats?.totalVotes || 0;
   const isCurrentTopicEditable = currentVotesCount === 0;
+
+  const getClosingStatus = (closesAt?: string | null) => {
+    if (!closesAt) return null;
+    const d = new Date(closesAt);
+    if (isNaN(d.getTime())) return null;
+    const isPast = d.getTime() < Date.now();
+    const dateStr = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    return {
+      isPast,
+      formatted: `${dateStr} בשעה ${timeStr}`,
+      shortDate: `${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })} ${timeStr}`
+    };
+  };
+
+  const getPresetDateTime = (days: number) => {
+    const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -370,10 +404,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
                   זירה במיקוד: {currentTopic.id}
                 </span>
+
+                {/* Closing status badge */}
+                {(() => {
+                  const closing = getClosingStatus(currentTopic.closes_at);
+                  if (!closing) return null;
+                  return closing.isPast ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 text-[11px] font-bold border border-rose-300 dark:border-rose-800 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                      <span>המשאל נסגר ב-{closing.formatted}</span>
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 text-[11px] font-bold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      <span>מועד סגירה: {closing.formatted}</span>
+                    </span>
+                  );
+                })()}
                 
                 {/* Editable vs Locked Badge */}
                 {isCurrentTopicEditable ? (
@@ -457,13 +508,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t.organization}</span>
                       {isActive && (
                         <span className="px-2 py-0.2 rounded text-[10px] font-black bg-amber-400 text-slate-950">
                           זירה פעילה
                         </span>
                       )}
+                      {(() => {
+                        const closing = getClosingStatus(t.closes_at);
+                        if (!closing) return null;
+                        return closing.isPast ? (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" /> נסגר
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-0.5" title={`נסגר ב-${closing.formatted}`}>
+                            <Clock className="w-2.5 h-2.5" /> עד {closing.shortDate}
+                          </span>
+                        );
+                      })()}
                       {isEditable ? (
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
                           <Unlock className="w-2.5 h-2.5" /> 0 תגובות
@@ -825,6 +889,60 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
 
+              {/* Closing Date and Time */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <CalendarClock className="w-4 h-4 text-amber-500" />
+                    <span>תאריך ושעת סגירת המשאל (אופציונלי)</span>
+                  </label>
+                  {newTopicClosesAt && (
+                    <button
+                      type="button"
+                      onClick={() => setNewTopicClosesAt('')}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 font-bold hover:underline"
+                    >
+                      ללא מועד סגירה (איפוס)
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="datetime-local"
+                    value={newTopicClosesAt}
+                    onChange={e => setNewTopicClosesAt(e.target.value)}
+                    className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-amber-500 outline-none font-medium"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setNewTopicClosesAt(getPresetDateTime(7))}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      שבוע
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewTopicClosesAt(getPresetDateTime(14))}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      שבועיים
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewTopicClosesAt(getPresetDateTime(30))}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      חודש
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  כאשר המועד יחלוף, המשאל יינעל באופן אוטומטי להצבעות נוספות ויוצג כמשאל שהסתיים.
+                </p>
+              </div>
+
               {/* Statements selection section */}
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1127,6 +1245,50 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       />
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Closing Date and Time */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <CalendarClock className="w-4 h-4 text-blue-500" />
+                    <span>תאריך ושעת סגירת המשאל</span>
+                  </label>
+                  {editTopicClosesAt && (
+                    <button
+                      type="button"
+                      onClick={() => setEditTopicClosesAt('')}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 font-bold hover:underline"
+                    >
+                      ללא מועד סגירה (איפוס)
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="datetime-local"
+                    value={editTopicClosesAt}
+                    onChange={e => setEditTopicClosesAt(e.target.value)}
+                    className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-blue-500 outline-none font-medium"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditTopicClosesAt(getPresetDateTime(7))}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      שבוע
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditTopicClosesAt(getPresetDateTime(14))}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      שבועיים
+                    </button>
+                  </div>
                 </div>
               </div>
 

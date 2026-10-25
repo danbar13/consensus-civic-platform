@@ -117,6 +117,7 @@ export async function createTopic(data: {
   category: string;
   groups: { id: string; label: string; color: string }[];
   initialStatements: string[];
+  closes_at?: string | null;
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics`, {
     method: 'POST',
@@ -136,6 +137,7 @@ export async function updateTopic(id: string, data: {
   organization?: string;
   category?: string;
   groups?: { id: string; label: string; color: string }[];
+  closes_at?: string | null;
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics/${id}`, {
     method: 'PATCH',

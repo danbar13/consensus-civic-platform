@@ -14,6 +14,7 @@ export interface Topic {
   groups_json: string;
   groups: StakeholderGroup[];
   created_at: string;
+  closes_at?: string | null;
   stats?: {
     statementsCount: number;
     totalVotes: number;

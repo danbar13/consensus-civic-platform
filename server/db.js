@@ -119,7 +119,8 @@ export function initDatabase() {
       organization TEXT NOT NULL,
       category TEXT NOT NULL,
       groups_json TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      closes_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS statements (
@@ -147,6 +148,13 @@ export function initDatabase() {
     );
   `);
 
+  // Migrate closes_at column if not existing
+  try {
+    db.exec('ALTER TABLE topics ADD COLUMN closes_at TEXT;');
+  } catch (err) {
+    // column already exists
+  }
+
   seedDataIfEmpty();
 }
 
@@ -159,8 +167,8 @@ function seedDataIfEmpty() {
   console.log('🌱 Seeding initial topics, statements, and votes for Civic Consensus Platform...');
 
   const insertTopic = db.prepare(`
-    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at)
-    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @created_at)
+    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at, closes_at)
+    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @created_at, @closes_at)
   `);
 
   const insertStatement = db.prepare(`
@@ -174,6 +182,7 @@ function seedDataIfEmpty() {
   `);
 
   const now = new Date().toISOString();
+  const defaultClosingDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. TOPIC: eilat-parking (Flagship)
   const eilatParkingGroups = [
@@ -190,7 +199,8 @@ function seedDataIfEmpty() {
     organization: 'ערב ערב באילת – המצפן העירוני',
     category: 'municipal',
     groups_json: JSON.stringify(eilatParkingGroups),
-    created_at: now
+    created_at: now,
+    closes_at: defaultClosingDate
   });
 
   const eilatStatements = [
@@ -314,7 +324,8 @@ function seedDataIfEmpty() {
     organization: 'מרכז הגישור והקהילה אילת',
     category: 'mediation',
     groups_json: JSON.stringify(airbnbGroups),
-    created_at: now
+    created_at: now,
+    closes_at: defaultClosingDate
   });
 
   const airbnbStatements = [
@@ -409,7 +420,8 @@ function seedDataIfEmpty() {
     organization: 'ועדת מלגות וקרן אילת',
     category: 'committee',
     groups_json: JSON.stringify(scholarshipGroups),
-    created_at: now
+    created_at: now,
+    closes_at: defaultClosingDate
   });
 
   const scholarshipStatements = [
