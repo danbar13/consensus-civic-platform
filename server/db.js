@@ -155,6 +155,13 @@ export function initDatabase() {
     // column already exists
   }
 
+  try {
+    const defaultCloses = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('UPDATE topics SET closes_at = ? WHERE closes_at IS NULL').run(defaultCloses);
+  } catch (err) {
+    // ignore
+  }
+
   seedDataIfEmpty();
 }
 
