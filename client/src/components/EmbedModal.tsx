@@ -12,11 +12,14 @@ interface EmbedModalProps {
 export const EmbedModal: React.FC<EmbedModalProps> = ({ topic, isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [embedTheme, setEmbedTheme] = useState<'auto' | 'dark' | 'light'>('auto');
 
   if (!isOpen || !topic) return null;
 
-  const embedUrl = `${window.location.origin}/?topic=${topic.id}&embed=true`;
-  const iframeSnippet = `<iframe src="${embedUrl}" width="100%" height="700" frameborder="0" style="border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" allow="clipboard-write"></iframe>`;
+  const themeQuery = embedTheme === 'auto' ? '' : `&theme=${embedTheme}`;
+  const embedUrl = `${window.location.origin}/?topic=${topic.id}&embed=true${themeQuery}`;
+  const borderColor = embedTheme === 'dark' ? '#334155' : '#e2e8f0';
+  const iframeSnippet = `<iframe src="${embedUrl}" width="100%" height="720" frameborder="0" style="border: 1px solid ${borderColor}; border-radius: 16px; overflow: hidden;" allow="clipboard-write"></iframe>`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(iframeSnippet);
@@ -47,6 +50,46 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({ topic, isOpen, onClose }
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Theme Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ערכת נושא לווידג'ט:</span>
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setEmbedTheme('auto')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                embedTheme === 'auto'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              אוטומטי
+            </button>
+            <button
+              type="button"
+              onClick={() => setEmbedTheme('dark')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                embedTheme === 'dark'
+                  ? 'bg-slate-950 text-amber-300 shadow-xs ring-1 ring-amber-400/40'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              🌙 מצב כהה קבוע
+            </button>
+            <button
+              type="button"
+              onClick={() => setEmbedTheme('light')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                embedTheme === 'light'
+                  ? 'bg-white text-blue-600 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              ☀️ מצב בהיר קבוע
+            </button>
+          </div>
         </div>
 
         {/* Snippet Card */}

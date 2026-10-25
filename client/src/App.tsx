@@ -23,8 +23,13 @@ export function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [embedModalOpen, setEmbedModalOpen] = useState<boolean>(false);
 
-  // Dark Mode State with LocalStorage persistence and system preference fallback
+  // Dark Mode State with URL parameter, LocalStorage persistence and system preference fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const themeParam = urlParams.get('theme');
+    if (themeParam === 'dark') return true;
+    if (themeParam === 'light') return false;
+
     const saved = localStorage.getItem('consensus_theme');
     if (saved) return saved === 'dark';
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -151,9 +156,7 @@ export function App() {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-200 ${
-      isEmbed ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100'
-    }`}>
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       
       {/* Global Header */}
       <Header

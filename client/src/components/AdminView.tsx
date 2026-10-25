@@ -61,6 +61,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [adminEmbedTheme, setAdminEmbedTheme] = useState<'auto' | 'dark' | 'light'>('auto');
 
   // New topic modal form state
   const [showNewTopicModal, setShowNewTopicModal] = useState(false);
@@ -311,8 +312,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  const embedUrl = `${window.location.origin}/?topic=${currentTopic.id}&embed=true`;
-  const embedCode = `<iframe src="${embedUrl}" width="100%" height="720" frameborder="0" style="border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" allow="clipboard-write"></iframe>`;
+  const embedThemeQuery = adminEmbedTheme === 'auto' ? '' : `&theme=${adminEmbedTheme}`;
+  const embedUrl = `${window.location.origin}/?topic=${currentTopic.id}&embed=true${embedThemeQuery}`;
+  const embedBorder = adminEmbedTheme === 'dark' ? '#334155' : '#e2e8f0';
+  const embedCode = `<iframe src="${embedUrl}" width="100%" height="720" frameborder="0" style="border: 1px solid ${embedBorder}; border-radius: 16px; overflow: hidden;" allow="clipboard-write"></iframe>`;
 
   const handleCopyEmbed = () => {
     navigator.clipboard.writeText(embedCode);
@@ -616,6 +619,51 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </>
             )}
           </button>
+        </div>
+
+        {/* Theme Selector for Embed Code */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">ערכת נושא לקוד ההטמעה:</span>
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setAdminEmbedTheme('auto')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  adminEmbedTheme === 'auto'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                אוטומטי
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminEmbedTheme('dark')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  adminEmbedTheme === 'dark'
+                    ? 'bg-slate-950 text-amber-300 shadow-xs ring-1 ring-amber-400/40'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🌙 מצב כהה קבוע
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminEmbedTheme('light')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  adminEmbedTheme === 'light'
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                ☀️ מצב בהיר קבוע
+              </button>
+            </div>
+          </div>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+            {adminEmbedTheme === 'dark' ? 'הווידג\'ט ייטען תמיד ברקע כהה מותאם' : adminEmbedTheme === 'light' ? 'הווידג\'ט ייטען תמיד ברקע בהיר' : 'הווידג\'ט יתאים את עצמו להגדרת המכשיר של הגולש'}
+          </span>
         </div>
 
         <div className="p-3 bg-slate-950 text-amber-300 font-mono text-xs rounded-xl overflow-x-auto text-left border border-slate-800" dir="ltr">
