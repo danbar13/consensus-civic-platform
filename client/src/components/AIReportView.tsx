@@ -66,10 +66,10 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                מחולל דו"ח קונצנזוס עיתונאי וגישור (AI Report Generator)
+                הכנת כתבה עיתונאית בלחיצת כפתור (AI Press Generator)
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                סינתזת נתוני ההצבעה החיים לכדי מסמך מובנה, מבוסס על מודל השפה של Gemini
+                הפקת טיוטת כתבה מוכנה לדפוס לגיליון יום חמישי ב"ערב ערב באילת" ולאתר yomyom.net מבוססת ניתוח נתוני ההצבעה החיים
               </p>
             </div>
           </div>
@@ -77,10 +77,10 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
           <button
             onClick={() => loadReport(templateType)}
             disabled={loading}
-            className="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition disabled:opacity-50"
+            className="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>רענן ניתוח AI</span>
+            <span>הפקת כתבה מחדש (AI) ✍️</span>
           </button>
         </div>
 

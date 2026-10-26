@@ -131,6 +131,15 @@ export const Header: React.FC<HeaderProps> = ({
           >
             מפת תוצאות
           </button>
+          <button
+            onClick={() => onSelectTab('report')}
+            className={`px-2.5 py-1 rounded-md font-medium transition ${
+              activeTab === 'report' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+            title="הכנת כתבה בלחיצת כפתור"
+          >
+            הכנת כתבה 📰
+          </button>
         </div>
       </header>
     );
@@ -337,9 +346,10 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
+              title="הפקת טיוטת כתבה עיתונאית מלאה בלחיצת כפתור"
             >
               <Sparkles className="w-4 h-4 text-purple-200" />
-              <span>דו"ח עיתונאי ו-AI</span>
+              <span>הכנת כתבה (AI) 📰</span>
             </button>
 
             <button

@@ -14,7 +14,14 @@ import { PitchDeckView } from './components/PitchDeckView';
 export function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [currentTopic, setCurrentTopic] = useState<Topic | null>(null);
-  const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>('vote');
+  const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>(() => {
+    if (typeof window === 'undefined') return 'vote';
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'dashboard' || tab === 'report' || tab === 'admin' || tab === 'vote') {
+      return tab;
+    }
+    return 'vote';
+  });
   const [analytics, setAnalytics] = useState<TopicAnalytics | null>(null);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>({});
@@ -228,6 +235,7 @@ export function App() {
                 analytics={analytics}
                 onRefresh={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onNavigateToVote={() => setActiveTab('vote')}
+                onNavigateToReport={() => setActiveTab('report')}
               />
             )}
 
@@ -268,6 +276,7 @@ export function App() {
                 onStatementsChanged={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onSelectTopic={handleSelectTopic}
                 onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
+                onNavigateToReport={() => setActiveTab('report')}
               />
             )}
 

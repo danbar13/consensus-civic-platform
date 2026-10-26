@@ -44,6 +44,7 @@ interface AdminViewProps {
   onStatementsChanged: () => void;
   onSelectTopic: (topicId: string) => void;
   onReturnToPitch?: () => void;
+  onNavigateToReport?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -54,7 +55,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onTopicDeleted,
   onStatementsChanged,
   onSelectTopic,
-  onReturnToPitch
+  onReturnToPitch,
+  onNavigateToReport
 }) => {
   const [statements, setStatements] = useState<Statement[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -374,6 +376,33 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-200 text-sm font-bold flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* 0. FAST ACTION: GENERATE NEWSPAPER ARTICLE (AI) */}
+      {onNavigateToReport && (
+        <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-slate-950 border-2 border-purple-500/40 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-center sm:text-right">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-2xl shrink-0 border border-purple-500/30">
+              📰
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                <span className="text-base sm:text-lg font-black text-white">הכנת כתבה עיתונאית בלחיצת כפתור (AI Press Draft)</span>
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">Gemini AI</span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-300">
+                המערכת מסכמת אוטומטית את אחוזי ההסכמה והצהרות הגשר מהשטח, ומפיקה טיוטת כתבה מלאה להורדה לדפוס לקראת גיליון יום חמישי ב"ערב ערב באילת".
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onNavigateToReport}
+            className="shrink-0 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs sm:text-sm shadow-lg shadow-purple-900/40 transition flex items-center gap-2 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>הפקת כתבה עכשיו ←</span>
+          </button>
         </div>
       )}
 
