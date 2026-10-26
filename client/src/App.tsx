@@ -57,6 +57,30 @@ export function App() {
   const initialTabParam = urlParams.get('tab');
   const isPitchParam = urlParams.get('pitch') === 'true';
 
+  // Check if arrived from pitch/landing page
+  const [showReturnToPitch] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const p = new URLSearchParams(window.location.search);
+    const fromParam = p.get('from');
+    if (fromParam === 'pitch' || fromParam === 'landing') {
+      try { sessionStorage.setItem('consensus_from_pitch', 'true'); } catch (e) {}
+      return true;
+    }
+    if (document.referrer && (document.referrer.includes('/pitch') || document.referrer.includes('/landing'))) {
+      try { sessionStorage.setItem('consensus_from_pitch', 'true'); } catch (e) {}
+      return true;
+    }
+    if (document.referrer && !document.referrer.includes(window.location.host)) {
+      try { sessionStorage.removeItem('consensus_from_pitch'); } catch (e) {}
+      return false;
+    }
+    try {
+      return sessionStorage.getItem('consensus_from_pitch') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
   // Initialize session and topics on mount
   useEffect(() => {
     const sid = getOrCreateSessionId();
@@ -67,8 +91,8 @@ export function App() {
       return;
     }
 
-    // If visiting the root URL without specific parameters, redirect to the Spark pitch landing page
-    if (!urlParams.get('tab') && !urlParams.get('embed') && !urlParams.get('topic') && !urlParams.get('pitch')) {
+    // If visiting the root URL without specific parameters and not from pitch, redirect to the pitch landing page
+    if (!urlParams.get('tab') && !urlParams.get('embed') && !urlParams.get('topic') && !urlParams.get('pitch') && urlParams.get('from') !== 'pitch') {
       window.location.replace('/pitch.html');
       return;
     }
@@ -177,24 +201,8 @@ export function App() {
         isEmbed={isEmbed}
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
+        showReturnToPitch={showReturnToPitch}
       />
-
-      {/* Return to Pitch Deck Banner when navigating away from pitch */}
-      {activeTab !== 'pitch' && !isEmbed && (
-        <div className="bg-amber-400 text-slate-950 px-4 py-2 flex items-center justify-between text-xs font-bold shadow-xs sticky top-0 z-40 border-b border-amber-500">
-          <div className="flex items-center gap-2">
-            <span>המצפן העירוני – ערב ערב באילת</span>
-            <span className="text-slate-800 font-normal hidden sm:inline">| אתה צופה במערכת הפעילה</span>
-          </div>
-          <a
-            href="/pitch.html"
-            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-white transition text-xs font-black shadow-xs"
-          >
-            <ArrowRight className="w-3.5 h-3.5" />
-            <span>חזור לדף הנחיתה ↩️</span>
-          </a>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
@@ -211,7 +219,7 @@ export function App() {
                 onVoteCast={handleVoteCast}
                 onStatementAdded={handleStatementAdded}
                 onNavigateToDashboard={() => setActiveTab('dashboard')}
-                onReturnToPitch={() => setActiveTab('pitch')}
+                onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
               />
             )}
 
@@ -259,7 +267,7 @@ export function App() {
                 }}
                 onStatementsChanged={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onSelectTopic={handleSelectTopic}
-                onReturnToPitch={() => setActiveTab('pitch')}
+                onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
               />
             )}
 

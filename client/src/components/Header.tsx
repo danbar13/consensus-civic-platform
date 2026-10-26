@@ -30,6 +30,7 @@ interface HeaderProps {
   isEmbed?: boolean;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  showReturnToPitch?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,7 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenEmbed,
   isEmbed = false,
   darkMode,
-  onToggleDarkMode
+  onToggleDarkMode,
+  showReturnToPitch = false
 }) => {
   const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
 
@@ -96,14 +98,16 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
-          <a
-            href="/?tab=pitch"
-            target="_top"
-            className="px-2 py-1 rounded-md text-amber-500 dark:text-amber-400 hover:underline font-bold transition"
-            title="חזרה לדף הנחיתה וההצעה למקבלי החלטות"
-          >
-            חזור לדף הנחיתה ↩
-          </a>
+          {showReturnToPitch && (
+            <a
+              href="/pitch.html"
+              target="_top"
+              className="px-2 py-1 rounded-md text-amber-500 dark:text-amber-400 hover:underline font-bold transition"
+              title="חזרה לדף הנחיתה וההצעה למקבלי החלטות"
+            >
+              חזור לדף הנחיתה ↩
+            </a>
+          )}
           <button
             onClick={onToggleDarkMode}
             className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition"
@@ -350,14 +354,16 @@ export const Header: React.FC<HeaderProps> = ({
               <span>ניהול וסינון</span>
             </button>
 
-            <a
-              href="/pitch.html"
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
-              title="דף הנחיתה וההצעה האסטרטגית למערכת ערב ערב באילת"
-            >
-              <Briefcase className="w-4 h-4 text-amber-400" />
-              <span>דף נחיתה והצעה 💼</span>
-            </a>
+            {showReturnToPitch && (
+              <a
+                href="/pitch.html"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
+                title="חזרה לדף הנחיתה וההצעה העסקית"
+              >
+                <Briefcase className="w-4 h-4 text-amber-400" />
+                <span>חזור לדף הנחיתה ↩️</span>
+              </a>
+            )}
           </nav>
         </div>
       </div>
