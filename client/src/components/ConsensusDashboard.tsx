@@ -64,32 +64,6 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
       
-      {/* Quick Action: Generate Press Article Banner */}
-      {onNavigateToReport && (
-        <div className="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-950 border border-purple-500/40 rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 text-center sm:text-right">
-            <div className="p-3 rounded-2xl bg-purple-500/20 text-purple-300 text-xl shrink-0">
-              📰
-            </div>
-            <div>
-              <div className="text-sm sm:text-base font-black text-white flex items-center gap-2 justify-center sm:justify-start">
-                <span>מעוניינים לפרסם את ממצאי הקונצנזוס בעיתון?</span>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200">AI Draft</span>
-              </div>
-              <p className="text-xs text-slate-300 mt-0.5">הפיקו טיוטת כתבה עיתונאית מלאה עם כותרת, ניתוח נתונים ופתרונות מוסכמים בלחיצת כפתור אחת.</p>
-            </div>
-          </div>
-          <button
-            onClick={onNavigateToReport}
-            className="shrink-0 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs sm:text-sm shadow-md transition flex items-center gap-2 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>הכנת כתבה בלחיצת כפתור 📰</span>
-            <span>←</span>
-          </button>
-        </div>
-      )}
-
       {/* 1. KPI SUMMARY CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Participants */}
@@ -428,6 +402,32 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Quick Action: Generate Press Article Banner (At the bottom after all statements) */}
+      {onNavigateToReport && (
+        <div className="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-950 border border-purple-500/40 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 text-center sm:text-right">
+            <div className="p-3 rounded-2xl bg-purple-500/20 text-purple-300 text-xl shrink-0">
+              📰
+            </div>
+            <div>
+              <div className="text-sm sm:text-base font-black text-white flex items-center gap-2 justify-center sm:justify-start">
+                <span>מעוניינים לפרסם את ממצאי הקונצנזוס בעיתון?</span>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200">AI Draft</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">הפיקו טיוטת כתבה עיתונאית מלאה עם כותרת, ניתוח נתונים ופתרונות מוסכמים בלחיצת כפתור אחת.</p>
+            </div>
+          </div>
+          <button
+            onClick={onNavigateToReport}
+            className="shrink-0 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs sm:text-sm shadow-md transition flex items-center gap-2 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>הכנת כתבה בלחיצת כפתור 📰</span>
+            <span>←</span>
+          </button>
+        </div>
+      )}
 
     </div>
   );
