@@ -9,6 +9,14 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/pitch",
+      "destination": "/pitch.html"
+    },
+    {
+      "source": "/landing",
+      "destination": "/landing.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

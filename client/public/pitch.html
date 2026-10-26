@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>המצפן האילתי | הצעת חדשנות למערכת "ערב ערב באילת"</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Rubik', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            navy: {
+              950: '#070f26',
+              900: '#0c1938',
+              800: '#152956',
+              700: '#1e3a75',
+            },
+            coral: {
+              500: '#ea580c',
+              600: '#c2410c',
+            },
+            redsea: {
+              500: '#0284c7',
+              600: '#0369a1',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+      font-family: 'Rubik', 'Inter', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .hero-overlay {
+      background: linear-gradient(105deg, rgba(7, 15, 38, 0.93) 0%, rgba(12, 25, 56, 0.85) 55%, rgba(12, 25, 56, 0.65) 100%);
+    }
+    .pulse-badge {
+      animation: softPulse 2.4s infinite ease-in-out;
+    }
+    @keyframes softPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.04); opacity: 0.9; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-sky-600 selection:text-white">
+
+  <!-- Top Sticky Navigation -->
+  <header class="sticky top-0 z-40 bg-navy-950/95 backdrop-blur-md border-b border-slate-800 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="https://www.yomyom.net/" target="_blank" rel="noreferrer" class="block shrink-0">
+          <img src="/images/yomyom-logo-white.png" alt="ערב ערב באילת" class="h-8 w-auto object-contain" />
+        </a>
+        <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-base sm:text-lg tracking-tight">המצפן האילתי</span>
+            <span class="hidden sm:inline-block text-xs bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-medium">יוזמה עבור "ערב ערב באילת"</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden md:block">מערכת משאלים, מיפוי קונצנזוס ושיתוף ציבור מבוססת AI</p>
+        </div>
+      </div>
+
+      <nav class="hidden lg:flex items-center gap-6 text-sm text-slate-300">
+        <a href="#opportunity" class="hover:text-amber-400 transition">הבשורה העיתונאית</a>
+        <a href="#simulator" class="hover:text-amber-400 transition">הדגמה חיה: חניה באילת</a>
+        <a href="#safety" class="hover:text-amber-400 transition">הגנה מלשון הרע</a>
+        <a href="#workflow" class="hover:text-amber-400 transition">איך זה עובד במערכת</a>
+        <a href="#roi" class="hover:text-amber-400 transition">פוטנציאל חשיפה</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <a href="#opportunity" class="text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition flex items-center gap-1.5">
+          <span>לסקירת ההצעה המלאה</span>
+          <span>↓</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative overflow-hidden bg-navy-950 text-white">
+    <div class="absolute inset-0">
+      <img src="/images/eilat-hero.jpg" alt="מפרץ אילת והרי אדום בשעת שקיעה" class="w-full h-full object-cover max-w-full" />
+      <div class="absolute inset-0 hero-overlay"></div>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-24">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+        <div class="lg:col-span-7 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs sm:text-sm font-medium">
+            <span class="w-2 h-2 rounded-full bg-amber-400 pulse-badge"></span>
+            <span>הצעת חדשנות למקומון הוותיק בישראל (מאז 1962)</span>
+          </div>
+
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight tracking-tight">
+            להפוך את <span class="text-amber-400">"ערב ערב באילת"</span> מסיקור הבעיות בעיר — לזירה שמגבשת את הפתרונות
+          </h1>
+
+          <p class="text-base sm:text-lg text-slate-200 leading-relaxed max-w-2xl">
+            בעוד שקבוצות הפייסבוק והוואטסאפ העירוניות טובעות בוויכוחים רועשים של מיעוט קולני, <strong>"המצפן האילתי"</strong> מעניק לקוראי "ערב ערב" ו"יום יום" כלי חכם להשתתפות קצרה של 30 שניות: בלי שרשורי השמצות, עם הגנה אוטומטית מלשון הרע, ועם אלגוריתם שמגלה <strong>על אילו פתרונות 80% מתושבי אילת באמת מסכימים</strong>.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <a href="#opportunity" class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold text-base shadow-lg shadow-orange-600/30 transition flex items-center gap-2">
+              <span>קראו את ההצעה המלאה</span>
+              <span>👇</span>
+            </a>
+            <a href="#workflow" class="px-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-white font-semibold text-base backdrop-blur-sm transition flex items-center gap-2">
+              <span>🗓️</span>
+              <span>לוח הזמנים השבועי במערכת העיתון</span>
+            </a>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4 pt-6 border-t border-white/15 max-w-xl">
+            <div>
+              <div class="text-2xl sm:text-3xl font-extrabold text-amber-400">0%</div>
+              <div class="text-xs sm:text-sm text-slate-300">חשיפה ללשון הרע והתנצחויות גולשים</div>
+            </div>
+            <div>
+              <div class="text-2xl sm:text-3xl font-extrabold text-sky-400">30 שנ'</div>
+              <div class="text-xs sm:text-sm text-slate-300">זמן השתתפות ממוצע לקורא מהנייד</div>
+            </div>
+            <div>
+              <div class="text-2xl sm:text-3xl font-extrabold text-emerald-400">100%</div>
+              <div class="text-xs sm:text-sm text-slate-300">תוכן עיתונאי בלעדי לגיליון יום חמישי</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero Right Preview Card -->
+        <div class="lg:col-span-5">
+          <div class="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs font-bold">ערב ערב באילת</span>
+                <span class="text-xs text-slate-400">מדור שבועי חדש: המצפן העירוני</span>
+              </div>
+              <span class="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                סקר פעיל
+              </span>
+            </div>
+
+            <div class="space-y-2">
+              <h2 class="text-lg font-bold text-white">נושא השבוע: מצוקת החניה בשכונות והחונים לסיני</h2>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                כיצד מאזנים בין הגנה על חניות התושבים בשכונות ובאזור התעשייה לבין עידוד התיירות והנופשים החוצים לטאבה?
+              </p>
+            </div>
+
+            <div class="bg-slate-800/90 border border-emerald-500/40 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  🌉 הצהרת גשר מובילה (84% הסכמה חוצת-מחנות)
+                </span>
+              </div>
+              <p class="text-sm font-medium text-white leading-snug">
+                "להכשיר חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני בשטח שדה התעופה הישן עם שאטל לטאבה, ולאכוף קנסות מוגברים בשכונות."
+              </p>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-center justify-between text-slate-300">
+                  <span>תושבי השכונות</span>
+                  <span class="font-bold text-emerald-400">89% מסכימים</span>
+                </div>
+                <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-emerald-400 h-full rounded-full" style="width: 89%"></div>
+                </div>
+                <div class="flex items-center justify-between text-slate-300 pt-1">
+                  <span>בעלי עסקים ואזור התעשייה</span>
+                  <span class="font-bold text-sky-400">82% מסכימים</span>
+                </div>
+                <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-sky-400 h-full rounded-full" style="width: 82%"></div>
+                </div>
+                <div class="flex items-center justify-between text-slate-300 pt-1">
+                  <span>ענף התיירות ומבקרים</span>
+                  <span class="font-bold text-amber-400">78% מסכימים</span>
+                </div>
+                <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-amber-400 h-full rounded-full" style="width: 78%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-800/50 rounded-xl p-3 flex items-center justify-between text-xs text-slate-300">
+              <span>מבוסס על מתודולוגיית <strong>Polis</strong> העולמית + סינון <strong>Gemini AI</strong></span>
+              <a href="#simulator" class="text-amber-400 hover:underline font-semibold">להתנסות ←</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 1: The Strategic Shift (Why Erev Erev Needs This) -->
+  <section id="opportunity" class="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center max-w-3xl mx-auto space-y-3 mb-12">
+      <span class="text-xs font-bold uppercase tracking-wider text-sky-700 bg-sky-100 px-3 py-1 rounded-full">היתרון האסטרטגי למקומון</span>
+      <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900">למה סקרים רגילים וקבוצות פייסבוק מפספסים את תושבי אילת?</h2>
+      <p class="text-slate-600 text-base sm:text-lg">
+        רוב תושבי אילת ("הרוב הדומם") נמנעים מלהגיב בפייסבוק כדי לא להיגרר להתנצחויות. "המצפן האילתי" מחזיר את השיח האיכותי הביתה — לאתר ולגיליון של "ערב ערב".
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Column 1: Facebook / WhatsApp -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-lg">שיח רשתות חברתיות (המצב הקיים)</span>
+          <span class="text-2xl">📢</span>
+        </div>
+        <h3 class="text-xl font-bold text-slate-800">רעש, מחנאות וסיכון משפטי</h3>
+        <ul class="space-y-3 text-sm text-slate-600">
+          <li class="flex items-start gap-2">
+            <span class="text-rose-500 font-bold mt-0.5">✕</span>
+            <span><strong>שליטת המיעוט הקולני:</strong> 5% מהמגיבים מייצרים 90% מהרעש ומשתיקים תושבים מתונים.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-rose-500 font-bold mt-0.5">✕</span>
+            <span><strong>חשיפה לתביעות לשון הרע:</strong> תגובות גולשים כוללות שמות פרטיים, השמצות והאשמות שמסכנות את מערכת העיתון.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-rose-500 font-bold mt-0.5">✕</span>
+            <span><strong>אפס תובנות למקבלי החלטות:</strong> מאות תגובות מתלהמות שלא ניתן להפיק מהן כותרת עיתונאית או פתרון מעשי.</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Column 2: Standard Yes/No Poll -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg">סקר אינטרנטי רגיל (בעד / נגד)</span>
+          <span class="text-2xl">📊</span>
+        </div>
+        <h3 class="text-xl font-bold text-slate-800">שטחי ולא מייצר מעורבות</h3>
+        <ul class="space-y-3 text-sm text-slate-600">
+          <li class="flex items-start gap-2">
+            <span class="text-amber-500 font-bold mt-0.5">•</span>
+            <span><strong>תוצאות צפויות מראש:</strong> שאלה כמו "האם יש מצוקת חניה באילת?" תוציא 95% "כן", בלי לחדש דבר לקורא.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-amber-500 font-bold mt-0.5">•</span>
+            <span><strong>הקורא פסיבי:</strong> הגולש לוחץ פעם אחת ועוזב את האתר תוך 3 שניות בלי סיבה לחזור לכתבה.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-amber-500 font-bold mt-0.5">•</span>
+            <span><strong>אין חוכמת המונים:</strong> רעיונות יצירתיים מהשטח של תושבים ובעלי עסקים לא מקבלים ביטוי.</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Column 3: The Eilat Compass (Polis + AI) -->
+      <div class="bg-gradient-to-b from-navy-900 to-navy-950 text-white rounded-2xl p-6 border-2 border-amber-500 shadow-xl space-y-4 relative">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-3 py-1 rounded-lg">המצפן האילתי ב"ערב ערב"</span>
+          <span class="text-2xl">🧭</span>
+        </div>
+        <h3 class="text-xl font-bold text-white">מנוע מעורבות, קונצנזוס ודאטה</h3>
+        <ul class="space-y-3 text-sm text-slate-200">
+          <li class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold mt-0.5">✓</span>
+            <span><strong>אין כפתור "Reply" (ללא התנצחויות):</strong> מצביעים על הצעות קצרות ומציעים פתרונות חדשים — בלי יכולת לתקוף גולש אחר.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold mt-0.5">✓</span>
+            <span><strong>זיהוי אוטומטי של "הצהרות גשר":</strong> האלגוריתם חושף פתרונות שזוכים לתמיכה גם מתושבי השכונות, גם מהסוחרים וגם מהתיירות.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-emerald-400 font-bold mt-0.5">✓</span>
+            <span><strong>שער AI נגד לשון הרע + כתבה מוכנה:</strong> סינון אוטומטי של השמצות והפקת דו"ח נתונים מוכן לפרסום בגיליון יום חמישי.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Interactive Live Simulator (Eilat Parking & Sinai Crossers) -->
+  <section id="simulator" class="py-16 bg-slate-900 text-white border-y border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div class="space-y-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/15 border border-amber-400/30 px-3 py-1 rounded-full">סימולטור חי למקבלי ההחלטות</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold">כך זה ייראה בתוך כתבה באתר "ערב ערב באילת" (yomyom.net)</h2>
+          <p class="text-slate-300 text-sm sm:text-base max-w-2xl">
+            נסו בעצמכם את שלושת מצבי המערכת: <strong>1. הצבעת הקורא</strong>, <strong>2. בדיקת מנגנון הגנת לשון הרע (AI)</strong>, ו-<strong>3. דו"ח הקונצנזוס שמתקבל במערכת העיתון</strong>.
+          </p>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="inline-flex bg-slate-800 p-1.5 rounded-xl border border-slate-700 self-start">
+          <button type="button" data-sim-tab="vote" class="sim-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-amber-500 text-slate-950 transition">
+            1. חוויית הקורא והצבעה
+          </button>
+          <button type="button" data-sim-tab="guardrail" class="sim-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">
+            2. שער AI נגד לשון הרע
+          </button>
+          <button type="button" data-sim-tab="report" class="sim-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">
+            3. תוצר הכתבה לעיתון
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1: Interactive Reader Voting & Live Consensus Chart -->
+      <div id="sim-panel-vote" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <!-- Voting Widget Card -->
+        <div class="lg:col-span-6 bg-white text-slate-900 rounded-2xl p-6 shadow-xl border border-slate-200 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <span class="text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-md">ווידג'ט מוטמע בכתבה</span>
+              <h3 class="text-lg font-extrabold mt-1">מצוקת החניה באילת והחונים לסיני</h3>
+            </div>
+            <div class="text-left">
+              <span id="simProgressCounter" class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">היגד 1 מתוך 5</span>
+            </div>
+          </div>
+
+          <!-- Persona Selector -->
+          <div class="space-y-2">
+            <label class="text-xs font-semibold text-slate-500 block">בחרו את הכובע שלכם בסוגיה (אנונימי לחלוטין):</label>
+            <div class="flex flex-wrap gap-2" id="personaButtons">
+              <button type="button" data-persona="residents" class="persona-btn px-3 py-1.5 rounded-full text-xs font-bold bg-sky-600 text-white transition">
+                🏠 תושב/ת שכונת מגורים
+              </button>
+              <button type="button" data-persona="business" class="persona-btn px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                🏪 בעל/ת עסק באזור התעשייה
+              </button>
+              <button type="button" data-persona="tourism" class="persona-btn px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                🌴 ענף התיירות / כללי
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Statement Card -->
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 min-h-[150px] flex flex-col justify-between space-y-4">
+            <div class="flex items-center justify-between text-xs text-slate-500">
+              <span id="simStatementCategory" class="font-semibold text-sky-700">פתרון מערכתי</span>
+              <span id="simStatementTag" class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">הצהרת גשר מובילה</span>
+            </div>
+            <p id="simStatementText" class="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+              "יש להכשיר חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני (למשל בשטח שדה התעופה הישן) עם שאטל ישיר למעבר טאבה, ולאכוף קנסות בשכונות."
+            </p>
+            <div id="simInstantFeedback" class="hidden text-xs font-semibold px-3 py-2 rounded-lg bg-sky-50 text-sky-800 border border-sky-200"></div>
+          </div>
+
+          <!-- Vote Buttons -->
+          <div class="grid grid-cols-3 gap-3">
+            <button type="button" data-vote="agree" class="vote-action-btn py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-1.5">
+              <span>👍</span>
+              <span>מסכים</span>
+            </button>
+            <button type="button" data-vote="disagree" class="vote-action-btn py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-1.5">
+              <span>👎</span>
+              <span>לא מסכים</span>
+            </button>
+            <button type="button" data-vote="pass" class="vote-action-btn py-3 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm transition flex items-center justify-center gap-1.5">
+              <span>⏭️</span>
+              <span>מדלג</span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+            <button type="button" id="prevStmtBtn" class="hover:text-slate-800 font-semibold">→ היגד קודם</button>
+            <span id="userVoteCountBadge">טרם הצבעת בסבב זה</span>
+            <button type="button" id="nextStmtBtn" class="hover:text-slate-800 font-semibold">היגד הבא ←</button>
+          </div>
+        </div>
+
+        <!-- Live Consensus Chart & Breakdown -->
+        <div class="lg:col-span-6 bg-slate-800/90 border border-slate-700 rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-white">מפת ההסכמות בזמן אמת (לפי קבוצות בעיר)</h3>
+              <p class="text-xs text-slate-400">הגרף מתעדכן מיד עם כל הצבעה ומבליט היכן כל הקבוצות מסכימות</p>
+            </div>
+            <span class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold">
+              מדד קונצנזוס: <span id="overallConsensusMetric">79%</span>
+            </span>
+          </div>
+
+          <div class="relative h-72 w-full bg-slate-900/60 rounded-xl p-3 border border-slate-700/60">
+            <canvas id="consensusChart"></canvas>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="bg-emerald-950/50 border border-emerald-500/30 rounded-xl p-3 space-y-1">
+              <div class="font-bold text-emerald-300">🌉 מה הופך היגד ל"הצהרת גשר"?</div>
+              <p class="text-slate-300 leading-relaxed">
+                היגדים 1, 2 ו-3 זוכים ליותר מ-75% תמיכה <strong>בכל שלוש הקבוצות במקביל</strong>. אלו הכותרות והפתרונות ש"ערב ערב" יכול להציג לעירייה כקונצנזוס אילתי מוצק.
+              </p>
+            </div>
+            <div class="bg-amber-950/50 border border-amber-500/30 rounded-xl p-3 space-y-1">
+              <div class="font-bold text-amber-300">⚡ היכן מתגלה מחלוקת?</div>
+              <p class="text-slate-300 leading-relaxed">
+                היגדים 4 ו-5 מראים פער חד בין תושבי השכונות לבין ענף התיירות — נקודה שבה המערכת ממליצה על פתרון גישור מאזן.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: AI Defamation Guardrail Simulator -->
+      <div id="sim-panel-guardrail" class="hidden grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div class="lg:col-span-6 bg-white text-slate-900 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-lg font-extrabold text-slate-900">בדיקת שער הבטיחות והגנת לשון הרע (Gemini AI)</h3>
+            <span class="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">הגנה משפטית לעיתון</span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-600">
+            במקומון, תגובות גולשים הן סיכון משפטי מתמיד. נסו לבחור אחת מהדוגמאות המתלהמות למטה (או הקלידו משפט משלכם) וראו כיצד ה-AI עוצר שמות פרטיים והשמצות ומציע ניסוח ענייני ומגשר:
+          </p>
+
+          <div class="space-y-2">
+            <span class="text-xs font-bold text-slate-500">לחצו על דוגמה לבדיקה מהירה:</span>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-sample-input="כל החוצפנים שמשאירים רכב בשחמון לשבוע ויורדים לסיני גונבים לנו את החניה, צריך לפנצ'ר או לגרור אותם מיד!" class="sample-rant-btn text-xs bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 px-3 py-1.5 rounded-lg font-medium transition">
+                😠 דוגמה 1: תגובה כועסת על חונים לסיני
+              </button>
+              <button type="button" data-sample-input="הפקחים של העירייה מושחתים ונותנים דוחות באזור התעשייה רק למי שלא מקורב לצלחת!" class="sample-rant-btn text-xs bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 px-3 py-1.5 rounded-lg font-medium transition">
+                ⚠️ דוגמה 2: האשמה שעלולה להוות לשון הרע
+              </button>
+              <button type="button" data-sample-input="יש להקצות חניון ייעודי בחינם לעובדי אזור התעשייה ולהגביל חניית לקוחות לשעתיים עם תו תושב." class="sample-rant-btn text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg font-medium transition">
+                ✅ דוגמה 3: הצעה עניינית ותקינה
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="guardrailInput" class="text-xs font-bold text-slate-700 block">טקסט ההצעה שמזין הקורא (עד 140 תווים):</label>
+            <textarea id="guardrailInput" rows="3" maxlength="160" class="w-full rounded-xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="כתבו כאן הצעה או תגובה של גולש...">כל החוצפנים שמשאירים רכב בשחמון לשבוע ויורדים לסיני גונבים לנו את החניה, צריך לפנצ'ר או לגרור אותם מיד!</textarea>
+          </div>
+
+          <button type="button" id="runGuardrailBtn" class="w-full py-3 rounded-xl bg-navy-900 hover:bg-navy-800 text-white font-bold text-sm transition flex items-center justify-center gap-2">
+            <span>🛡️</span>
+            <span>הפעל בדיקת AI וניסוח מגשר</span>
+          </button>
+        </div>
+
+        <!-- Guardrail Output Result -->
+        <div class="lg:col-span-6 bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+          <h3 class="text-lg font-bold text-white">תוצאת מנוע הבקרה והגישור (AI Moderation)</h3>
+          <div id="guardrailResultBox" class="bg-slate-900/90 border border-amber-500/40 rounded-xl p-5 space-y-4">
+            <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+              <span>⚠️</span>
+              <span id="guardrailStatusTitle">זוהתה שפה מתלהמת / פוטנציאל פגיעה — ההיגד המקורי נחסם לפרסום ישיר</span>
+            </div>
+            <p id="guardrailReason" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              המערכת זיהתה ביטויים תוקפניים ("חוצפנים", "גונבים", "לפנצ'ר") שאינם מתאימים לשיח הציבורי ב"ערב ערב באילת". עם זאת, זוהתה נקודה עניינית לגבי חניה ארוכת טווח בשכונות המגורים.
+            </p>
+            <div class="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold text-emerald-300">✨ הצעת המגשר החכם (ניסוח נקי וחוקי להצבעה):</div>
+              <p id="guardrailReframedText" class="text-sm sm:text-base font-bold text-white">
+                "יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל אכיפה וגרירה לחניון מוסדר."
+              </p>
+              <button type="button" id="approveReframedBtn" class="mt-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                אשר ושלח ניסוח זה לתור העורך ✓
+              </button>
+              <p id="reframedApprovedToast" class="hidden text-xs text-emerald-300 font-semibold pt-1">
+                ✓ ההיגד המגשר נשמר והועבר לאישור מהיר של עורך "ערב ערב"!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Ready-to-Publish Newspaper Article Output -->
+      <div id="sim-panel-report" class="hidden grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div class="lg:col-span-8 bg-white text-slate-900 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4 border-t-8 border-red-600">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="bg-red-600 text-white text-xs font-extrabold px-2.5 py-1 rounded">ערב ערב באילת</span>
+              <span class="text-xs font-bold text-slate-500">טיוטת כתבה אוטומטית לגיליון יום חמישי</span>
+            </div>
+            <button type="button" id="copyArticleDraftBtn" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 transition">
+              📋 העתק טקסט כתבה
+            </button>
+          </div>
+
+          <article id="newspaperDraftContent" class="space-y-4 text-slate-800 leading-relaxed">
+            <h3 class="text-xl sm:text-2xl font-extrabold text-slate-950">
+              המצפן האילתי קובע: 84% מהתושבים ובעלי העסקים מסכימים על פתרון "חנה וסע" לנופשים לסיני
+            </h3>
+            <p class="text-sm font-semibold text-slate-600">
+              מאות קוראי "ערב ערב באילת" השתתפו השבוע במשאל הקונצנזוס המיוחד בנושא מצוקת החניה בשכונות ובאזור התעשייה. במקום ויכוחים, הנתונים חושפים 3 הסכמות רחבות שחוצות את כל המחנות בעיר:
+            </p>
+            <div class="bg-slate-50 border-r-4 border-emerald-600 p-4 rounded-l-xl space-y-2 text-sm">
+              <div><strong>1. חניון מוסדר לנופשים לסיני (84% הסכמה חוצת-מחנות):</strong> תמיכה גורפת של תושבי השכונות (89%), בעלי העסקים (82%) ואנשי התיירות (78%) בהכשרת חניון בתשלום בשטח שדה התעופה הישן עם שאטל לטאבה ואכיפה בשכונות.</div>
+              <div><strong>2. קרן עירונית שקופה מהכנסות החניה (82% הסכמה):</strong> הקוראים דורשים שכל שקל מדוחות חניה ומחניוני תיירים ייצבע לטובת הצללת מדרכות, שאטלים ושיפור החניה בשכונות.</div>
+              <div><strong>3. שעתיים חינם לתושבי אילת באזור התעשייה (79% הסכמה):</strong> הסכמה רחבה בין סוחרים לתושבים על הגבלת החניה ל-3 שעות ליצירת תחלופת לקוחות, עם שעתיים ראשונות חינם לבעלי "תו תושב".</div>
+            </div>
+            <p class="text-sm text-slate-700">
+              <strong>סלע המחלוקת שדורש גישור:</strong> סביב השאלה האם לאסור לחלוטין כניסת רכבי מבקרים לשכונות בקיץ ובחגים, נרשם פער בין תושבי השכונות (86% בעד) לבין נציגי התיירות והמסחר (42% בלבד), החוששים מפגיעה במבקרים העוצרים לקניות בעיר.
+            </p>
+          </article>
+          <div id="copyToastMsg" class="hidden text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">
+            ✓ טקסט הכתבה הועתק ללוח!
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+          <h4 class="text-base font-bold text-amber-400">למה זה משנה את כללי המשחק עבור המערכת?</h4>
+          <ul class="space-y-3 text-xs sm:text-sm text-slate-200">
+            <li class="flex items-start gap-2">
+              <span class="text-amber-400 font-bold">1.</span>
+              <span><strong>חיסכון אדיר בזמן מערכת:</strong> ביום שלישי ב-17:00 עם סגירת הסקר, העורך מפיק בלחיצת כפתור סיכום נתונים מדויק להכנת הכתבה והורדה לדפוס ביום רביעי.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-400 font-bold">2.</span>
+              <span><strong>סדר יום עירוני:</strong> העיתון פונה לדוברות העירייה לא עם "תלונה", אלא עם פתרון ש-84% מהתושבים הצביעו בעדו.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-400 font-bold">3.</span>
+              <span><strong>המשכיות שבועית:</strong> בסוף כל כתבה מזמינים את הקוראים להצביע בסוגיה של השבוע הבא.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Legal Safety & Editorial Control -->
+  <section id="safety" class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+      <div class="lg:col-span-6 space-y-5">
+        <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">ביטחון משפטי ומערכתי מלא</span>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+          תוכנן במיוחד עבור הרגישות המשפטית של עיתון מקומי
+        </h2>
+        <p class="text-slate-600 text-base leading-relaxed">
+          אחת הסיבות המרכזיות שבגללן אתרי חדשות חוששים מפתיחת במות לתושבים היא החשיפה לתביעות דיבה ולשון הרע. ב"מצפן האילתי" מובנות <strong>3 שכבות הגנה הרמטיות</strong>:
+        </p>
+
+        <div class="space-y-4">
+          <div class="flex items-start gap-3.5 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">1</div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm sm:text-base">אין תגובות חופשיות ואין שרשורים (Zero-Reply Architecture)</h3>
+              <p class="text-xs sm:text-sm text-slate-600 mt-0.5">גולשים לא יכולים להגיב זה לזה, לתייג אנשים או לפתוח ויכוחים. ניתן רק להצביע "מסכים / לא מסכים" על היגדים מאושרים.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3.5 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold shrink-0">2</div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm sm:text-base">סינון AI אוטומטי לשמות פרטיים והשמצות (PII & Defamation Guard)</h3>
+              <p class="text-xs sm:text-sm text-slate-600 mt-0.5">כל הצעה חדשה עוברת דרך מודל שפה שמזהה שמות של אנשים או בעלי תפקידים, חוסם קללות וממיר טקסט כועס להצעת מדיניות נקייה.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3.5 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">3</div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm sm:text-base">אישור עורך בלחיצת כפתור (Editor Moderation Queue)</h3>
+              <p class="text-xs sm:text-sm text-slate-600 mt-0.5">שום היגד של גולש לא עולה לאוויר לפני שעורך ב"ערב ערב" מאשר אותו בקליק מתוך פאנל הניהול.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Multi-Topic Roadmap for Eilat -->
+      <div class="lg:col-span-6 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-lg space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg sm:text-xl font-extrabold text-slate-900">בנק נושאים מוכן ל-2 החודשים הראשונים</h3>
+          <span class="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md">תוכנית מדור שבועית</span>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-600">
+          המערכת היא רב-נושאית — בכל שבוע פותחים זירה עירונית חדשה שמייצרת כותרות ומעורבות:
+        </p>
+
+        <div class="space-y-3">
+          <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-bold text-amber-800">שבוע 1 (מוכן להשקה מידית)</span>
+              <h4 class="font-bold text-slate-900 text-sm">מצוקת החניה בשכונות, באזורי המסחר והחונים לסיני</h4>
+            </div>
+            <span class="text-xs font-bold bg-amber-500 text-white px-2.5 py-1 rounded-full shrink-0">מוכן בדמו</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-bold text-slate-500">שבוע 2</span>
+              <h4 class="font-bold text-slate-900 text-sm">הסדרת דירות ה-Airbnb בשכונות הוותיקות מול איכות חיי השכנים</h4>
+            </div>
+            <span class="text-xs font-semibold text-slate-600 bg-slate-200 px-2.5 py-1 rounded-full shrink-0">מוכן במערכת</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-bold text-slate-500">שבוע 3</span>
+              <h4 class="font-bold text-slate-900 text-sm">עתיד שטח שדה התעופה הישן: תמהיל מגורים לצעירים, פארק ותיירות</h4>
+            </div>
+            <span class="text-xs font-semibold text-slate-500">תבנית מוכנה</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-bold text-slate-500">שבוע 4</span>
+              <h4 class="font-bold text-slate-900 text-sm">ניקיון, הצללה ותחבורה ציבורית משכונות המגורים לחופים</h4>
+            </div>
+            <span class="text-xs font-semibold text-slate-500">תבנית מוכנה</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: 4-Step Editorial Workflow -->
+  <section id="workflow" class="py-14 bg-slate-100 border-y border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-10 space-y-2">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">אפס עומס טכני: איך זה עובד ביומיום של המערכת?</h2>
+        <p class="text-sm sm:text-base text-slate-600">הטמעה פשוטה בשורת קוד אחת (Iframe) בתוך כתבה רגילה באתר yomyom.net</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-2">
+          <div class="text-xs font-extrabold text-sky-700 bg-sky-50 inline-block px-2.5 py-1 rounded">יום חמישי (יום פרסום העיתון)</div>
+          <h3 class="font-bold text-slate-900 text-base">1. פתיחת הסקר השבועי</h3>
+          <p class="text-xs sm:text-sm text-slate-600">עם צאת הגיליון לאור ביום חמישי, נפתח הסקר החדש באתר (ומצורף קוד QR בגיליון המודפס) עם 6–8 היגדי פתיחה מאוזנים.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-2">
+          <div class="text-xs font-extrabold text-amber-700 bg-amber-50 inline-block px-2.5 py-1 rounded">חמישי עד שלישי ב-17:00</div>
+          <h3 class="font-bold text-slate-900 text-base">2. הצבעת תושבים וסגירת הסקר</h3>
+          <p class="text-xs sm:text-sm text-slate-600">הקוראים מצביעים ומציעים פתרונות לאורך סוף השבוע ותחילת השבוע (ה-AI מסנן לשון הרע). הסקר נסגר רשמית ביום ג' בשעה 17:00.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-2">
+          <div class="text-xs font-extrabold text-emerald-700 bg-emerald-50 inline-block px-2.5 py-1 rounded">יום רביעי (הכנה והורדה לדפוס)</div>
+          <h3 class="font-bold text-slate-900 text-base">3. הכנת כתבה והעברה לדפוס</h3>
+          <p class="text-xs sm:text-sm text-slate-600">המערכת מפיקה אוטומטית את מפת הקונצנזוס, 3 הצהרות הגשר המובילות וטיוטת הכתבה, לשילוב תגובת העירייה והעברה לדפוס ביום רביעי.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-2">
+          <div class="text-xs font-extrabold text-purple-700 bg-purple-50 inline-block px-2.5 py-1 rounded">יום חמישי העוקב</div>
+          <h3 class="font-bold text-slate-900 text-base">4. פרסום הממצאים והזנקת הסקר הבא</h3>
+          <p class="text-xs sm:text-sm text-slate-600">פרסום כתבת התוצאות בגיליון יום חמישי של "ערב ערב באילת" ובאתר, ובמקביל פתיחת המשאל העירוני בנושא הבא.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 5: Interactive Traffic & Engagement Calculator -->
+  <section id="roi" class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-lg p-6 sm:p-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-6 space-y-5">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-3 py-1 rounded-full">מחשבון מעורבות ותנועה לאתר</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">כמה מעורבות וחשיפה חוזרת ייצר המדור עבור "ערב ערב"?</h2>
+          <p class="text-sm text-slate-600">
+            התאימו את המחוונים לפי היקף החשיפה החודשי של האתר והגיליונות הדיגיטליים כדי להעריך את היקף ההצבעות והביקורים החוזרים:
+          </p>
+
+          <div class="space-y-4 pt-2">
+            <div>
+              <div class="flex justify-between text-xs sm:text-sm font-bold text-slate-700 mb-1">
+                <label for="monthlyVisitorsSlider">כניסות חודשיות לאתר ולכתבות הסקר:</label>
+                <span id="monthlyVisitorsVal" class="text-sky-700">70,000</span>
+              </div>
+              <input id="monthlyVisitorsSlider" type="range" min="20000" max="150000" step="5000" value="70000" class="w-full accent-sky-600 cursor-pointer" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs sm:text-sm font-bold text-slate-700 mb-1">
+                <label for="participationRateSlider">אחוז השתתפות פעילה בהצבעה המהירה:</label>
+                <span id="participationRateVal" class="text-amber-600">6%</span>
+              </div>
+              <input id="participationRateSlider" type="range" min="2" max="18" step="1" value="6" class="w-full accent-amber-500 cursor-pointer" />
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center space-y-1">
+            <div class="text-xs text-slate-500 font-semibold">משתתפים פעילים בחודש</div>
+            <div id="calcActiveVoters" class="text-2xl sm:text-3xl font-extrabold text-slate-900">4,200</div>
+            <div class="text-xs text-emerald-600 font-medium">תושבים מצביעים</div>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center space-y-1">
+            <div class="text-xs text-slate-500 font-semibold">אינטראקציות והצבעות</div>
+            <div id="calcTotalVotes" class="text-2xl sm:text-3xl font-extrabold text-sky-700">29,400</div>
+            <div class="text-xs text-slate-500">ממוצע 7 היגדים לקורא</div>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center space-y-1">
+            <div class="text-xs text-slate-500 font-semibold">הצעות פתרון חדשות</div>
+            <div id="calcNewProposals" class="text-2xl sm:text-3xl font-extrabold text-amber-600">210</div>
+            <div class="text-xs text-slate-500">לאחר סינון AI</div>
+          </div>
+
+          <div class="sm:col-span-3 bg-navy-900 text-white rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="text-xs sm:text-sm">
+              <strong>פוטנציאל חסות מסחרית למדור:</strong> מדור קבוע עם אלפי מצביעים אילתיים הוא נכס פרסומי פרימיום לחברות נדל"ן, קמעונאות ותיירות בעיר.
+            </div>
+            <span class="text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1 rounded-full shrink-0">מנוע הכנסה חדש</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 6: Launch External Live Application & Widget (Bottom Only) -->
+  <section id="live-app-section" class="py-16 bg-gradient-to-b from-navy-900 to-navy-950 text-white border-t border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
+      <div class="space-y-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-500/20 border border-amber-400/30 px-3.5 py-1.5 rounded-full">התנסות חיה במערכת שהוקמה</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold">עכשיו, לאחר שקראתם את ההצעה — היכנסו והתנסו במערכת הפעילה</h2>
+        <p class="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto">
+          המערכת המלאה כבר באוויר וכוללת את משאל החניה באילת. בחרו בין כניסה לווידג'ט המשתמש (כפי שיוטמע בכתבות האתר) לבין כניסה לאתר האפליקציה המלא וממשק הניהול לעורכים:
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-right max-w-4xl mx-auto">
+        <!-- Card 1: User Widget -->
+        <div class="bg-slate-900/95 border-2 border-amber-500/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-5">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2.5 py-1 rounded-md">חוויית הקורא בכתבה</span>
+              <span class="text-xl">📱</span>
+            </div>
+            <h3 class="text-xl font-extrabold text-white">ווידג'ט המשתמש (משאל החניה באילת)</h3>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              תצוגת הווידג'ט המוטמעת (Dark Mode) בנושא מצוקת החניה והחונים לסיני — בדיוק כפי שתופיע לקוראי "ערב ערב" בתוך הכתבה בנייד ובמחשב.
+            </p>
+          </div>
+          <div class="space-y-2.5 pt-2">
+            <a href="https://consensus-civic-platform.vercel.app/?topic=eilat-parking&embed=true&theme=dark" target="_blank" rel="noopener noreferrer" class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-orange-600/25 transition flex items-center justify-center gap-2">
+              <span>🗳️ פתיחת ווידג'ט המשתמש בחלון חדש</span>
+              <span>↗</span>
+            </a>
+            <button type="button" data-embed-url="https://consensus-civic-platform.vercel.app/?topic=eilat-parking&embed=true&theme=dark" data-embed-title="תצוגה מוטמעת חיה: ווידג'ט המשתמש (משאל החניה באילת)" class="preview-iframe-btn w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition">
+              🖥️ הצגת הווידג'ט בתוך עמוד זה (Iframe)
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2: Full App & Management -->
+        <div class="bg-slate-900/95 border-2 border-sky-500/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-5">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30 px-2.5 py-1 rounded-md">מערכת מלאה וניהול עורכים</span>
+              <span class="text-xl">🧭</span>
+            </div>
+            <h3 class="text-xl font-extrabold text-white">אתר האפליקציה וממשק הניהול</h3>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              הפלטפורמה המלאה הכוללת את זירות הדיון העירוניות, דשבורד ניתוח הקונצנזוס והצהרות הגשר, אישור היגדים והפקת כתבת הסיכום ליום רביעי.
+            </p>
+          </div>
+          <div class="space-y-2.5 pt-2">
+            <a href="https://consensus-civic-platform.vercel.app" target="_blank" rel="noopener noreferrer" class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-sky-600/25 transition flex items-center justify-center gap-2">
+              <span>🚀 כניסה לאתר האפליקציה וניהול</span>
+              <span>↗</span>
+            </a>
+            <button type="button" data-embed-url="https://consensus-civic-platform.vercel.app" data-embed-title="תצוגה מוטמעת חיה: אתר האפליקציה וממשק הניהול" class="preview-iframe-btn w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition">
+              🖥️ הצגת האפליקציה המלאה בתוך עמוד זה (Iframe)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional Live Embedded Iframe Container -->
+      <div id="liveIframeWrapper" class="hidden pt-4 max-w-4xl mx-auto space-y-2">
+        <div class="flex items-center justify-between text-xs text-slate-300 bg-slate-900 px-4 py-2.5 rounded-t-xl border border-b-0 border-slate-700">
+          <span id="liveIframeTitle" class="font-bold text-amber-300">תצוגה מוטמעת חיה:</span>
+          <button type="button" id="closeIframePreviewBtn" class="text-rose-400 hover:underline font-bold">סגור תצוגה מוטמעת ✕</button>
+        </div>
+        <div class="w-full h-[680px] rounded-b-xl overflow-hidden border-2 border-amber-500/50 bg-slate-950 shadow-2xl">
+          <iframe id="liveAppIframe" src="about:blank" title="המצפן האילתי - תצוגה חיה" class="w-full h-full border-0"></iframe>
+        </div>
+      </div>
+
+      <div class="pt-6 text-xs text-slate-400 border-t border-slate-800/80 max-w-xl mx-auto">
+        פותח ומוגש על ידי <strong>דני ברקאי (DANBAR Consulting)</strong> עבור הנהלת ומערכת <strong>"ערב ערב באילת" / "יום יום"</strong>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (function() {
+      
+      // Dynamic origin sync: ensures links and iframes work on current host (localhost or vercel)
+      if (window.location.protocol.startsWith('http')) {
+        var currentOrigin = window.location.origin;
+        document.querySelectorAll('a[href^="https://consensus-civic-platform.vercel.app"]').forEach(function(a) {
+          a.href = a.href.replace('https://consensus-civic-platform.vercel.app', currentOrigin);
+        });
+        document.querySelectorAll('[data-embed-url^="https://consensus-civic-platform.vercel.app"]').forEach(function(el) {
+          el.setAttribute('data-embed-url', el.getAttribute('data-embed-url').replace('https://consensus-civic-platform.vercel.app', currentOrigin));
+        });
+      }
+
+      // --- 1. Bottom Embedded Iframe Preview Logic ---
+      var iframeWrapper = document.getElementById("liveIframeWrapper");
+      var liveIframe = document.getElementById("liveAppIframe");
+      var liveIframeTitle = document.getElementById("liveIframeTitle");
+
+      document.querySelectorAll(".preview-iframe-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var targetUrl = btn.getAttribute("data-embed-url");
+          var targetTitle = btn.getAttribute("data-embed-title");
+          if (!iframeWrapper.classList.contains("hidden") && liveIframe.src === targetUrl) {
+            iframeWrapper.classList.add("hidden");
+            liveIframe.src = "about:blank";
+          } else {
+            liveIframeTitle.textContent = targetTitle;
+            liveIframe.src = targetUrl;
+            iframeWrapper.classList.remove("hidden");
+            iframeWrapper.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        });
+      });
+
+      document.getElementById("closeIframePreviewBtn").addEventListener("click", function() {
+        iframeWrapper.classList.add("hidden");
+        liveIframe.src = "about:blank";
+      });
+
+      // --- 2. Simulator Mode Tabs ---
+      var simTabBtns = document.querySelectorAll(".sim-tab-btn");
+      var panels = {
+        vote: document.getElementById("sim-panel-vote"),
+        guardrail: document.getElementById("sim-panel-guardrail"),
+        report: document.getElementById("sim-panel-report")
+      };
+
+      simTabBtns.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var target = btn.getAttribute("data-sim-tab");
+          simTabBtns.forEach(function(b) {
+            b.classList.remove("bg-amber-500", "text-slate-950");
+            b.classList.add("text-slate-300");
+          });
+          btn.classList.add("bg-amber-500", "text-slate-950");
+          btn.classList.remove("text-slate-300");
+
+          Object.keys(panels).forEach(function(k) {
+            if (k === target) {
+              panels[k].classList.remove("hidden");
+              panels[k].classList.add("grid");
+            } else {
+              panels[k].classList.add("hidden");
+              panels[k].classList.remove("grid");
+            }
+          });
+        });
+      });
+
+      // --- 3. Interactive Voting Simulator & Chart.js ---
+      var currentPersona = "residents";
+      var currentStmtIndex = 0;
+      var userVotesCast = 0;
+
+      var statements = [
+        {
+          id: 1,
+          shortLabel: "1. חניון חנה-וסע לסיני",
+          category: "פתרון מערכתי משולב",
+          tag: "🌉 הצהרת גשר מובילה",
+          tagClass: "bg-emerald-100 text-emerald-800",
+          text: "\"יש להכשיר חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני (למשל בשטח שדה התעופה הישן) עם שאטל ישיר למעבר טאבה, ולאכוף קנסות בשכונות.\"",
+          support: { residents: 89, business: 82, tourism: 78 }
+        },
+        {
+          id: 2,
+          shortLabel: "2. קרן שקופה מהכנסות חניה",
+          category: "שקיפות ותועלת לתושב",
+          tag: "🌉 הצהרת גשר מובילה",
+          tagClass: "bg-emerald-100 text-emerald-800",
+          text: "\"כל ההכנסות מאכיפת חניה ומחניוני תיירים צריכות להיות צבועות בקרן עירונית ייעודית להצללת מדרכות, שאטלים ושיפור החניה בשכונות.\"",
+          support: { residents: 86, business: 80, tourism: 79 }
+        },
+        {
+          id: 3,
+          shortLabel: "3. שעתיים חינם לתושב במסחר",
+          category: "איזון מסחר ותושבים",
+          tag: "🌉 הצהרת גשר רחבה",
+          tagClass: "bg-emerald-100 text-emerald-800",
+          text: "\"באזור התעשייה ובמרכזי המסחר יש להגביל את החניה ל-3 שעות לתחלופת לקוחות, כאשר לתושבי אילת יינתנו שעתיים ראשונות חינם.\"",
+          support: { residents: 84, business: 78, tourism: 74 }
+        },
+        {
+          id: 4,
+          shortLabel: "4. איסור מוחלט בשכונות בשיא",
+          category: "הגנה קשיחה על השכונות",
+          tag: "⚡ נקודת מחלוקת בין מחנות",
+          tagClass: "bg-amber-100 text-amber-800",
+          text: "\"יש לאסור לחלוטין חניית רכבים ללא 'תו תושב אילתי' בתוך רחובות שכונות המגורים בתקופות שיא (חגים וקיץ) או מעל 24 שעות רצופות.\"",
+          support: { residents: 88, business: 58, tourism: 39 }
+        },
+        {
+          id: 5,
+          shortLabel: "5. הימנעות מקנסות לתיירים",
+          category: "גישה פרו-תיירותית",
+          tag: "⚡ נקודת מחלוקת חדה",
+          tagClass: "bg-rose-100 text-rose-800",
+          text: "\"אילת מתפרנסת מתיירות — אסור להבריח מבקרים ישראלים עם גרירות וקנסות חניה קשוחים, גם אם הם יורדים לסיני ועוצרים בעיר רק לקניות.\"",
+          support: { residents: 22, business: 54, tourism: 81 }
+        }
+      ];
+
+      var personaBtns = document.querySelectorAll(".persona-btn");
+      personaBtns.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          currentPersona = btn.getAttribute("data-persona");
+          personaBtns.forEach(function(b) {
+            b.className = "persona-btn px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+          });
+          btn.className = "persona-btn px-3 py-1.5 rounded-full text-xs font-bold bg-sky-600 text-white transition";
+        });
+      });
+
+      function renderCurrentStatement() {
+        var st = statements[currentStmtIndex];
+        document.getElementById("simProgressCounter").textContent = "היגד " + (currentStmtIndex + 1) + " מתוך " + statements.length;
+        document.getElementById("simStatementCategory").textContent = st.category;
+        var tagEl = document.getElementById("simStatementTag");
+        tagEl.textContent = st.tag;
+        tagEl.className = "px-2 py-0.5 rounded font-bold " + st.tagClass;
+        document.getElementById("simStatementText").textContent = st.text;
+        document.getElementById("simInstantFeedback").classList.add("hidden");
+      }
+
+      var ctx = document.getElementById("consensusChart").getContext("2d");
+      var consensusChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: statements.map(function(s) { return s.shortLabel; }),
+          datasets: [
+            {
+              label: "תושבי השכונות (%)",
+              data: statements.map(function(s) { return s.support.residents; }),
+              backgroundColor: "#38bdf8",
+              borderRadius: 4
+            },
+            {
+              label: "בעלי עסקים ותעשייה (%)",
+              data: statements.map(function(s) { return s.support.business; }),
+              backgroundColor: "#fbbf24",
+              borderRadius: 4
+            },
+            {
+              label: "תיירות ומבקרים (%)",
+              data: statements.map(function(s) { return s.support.tourism; }),
+              backgroundColor: "#34d399",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { color: "#cbd5e1", callback: function(v) { return v + "%"; } },
+              grid: { color: "rgba(148, 163, 184, 0.15)" }
+            },
+            x: {
+              ticks: { color: "#e2e8f0", font: { family: "Rubik", size: 11 } },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: "#f8fafc", font: { family: "Rubik", size: 12 } }
+            }
+          }
+        }
+      });
+
+      function updateChartData() {
+        consensusChart.data.datasets[0].data = statements.map(function(s) { return s.support.residents; });
+        consensusChart.data.datasets[1].data = statements.map(function(s) { return s.support.business; });
+        consensusChart.data.datasets[2].data = statements.map(function(s) { return s.support.tourism; });
+        consensusChart.update();
+
+        // Update top bridging average metric
+        var b1 = (statements[0].support.residents + statements[0].support.business + statements[0].support.tourism) / 3;
+        var b2 = (statements[1].support.residents + statements[1].support.business + statements[1].support.tourism) / 3;
+        var b3 = (statements[2].support.residents + statements[2].support.business + statements[2].support.tourism) / 3;
+        var avg = Math.round((b1 + b2 + b3) / 3);
+        document.getElementById("overallConsensusMetric").textContent = avg + "%";
+      }
+
+      document.querySelectorAll(".vote-action-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var action = btn.getAttribute("data-vote");
+          var st = statements[currentStmtIndex];
+          userVotesCast++;
+          document.getElementById("userVoteCountBadge").textContent = "הצבעת על " + userVotesCast + " היגדים";
+
+          if (action === "agree") {
+            st.support[currentPersona] = Math.min(98, st.support[currentPersona] + 2);
+          } else if (action === "disagree") {
+            st.support[currentPersona] = Math.max(5, st.support[currentPersona] - 2);
+          }
+          updateChartData();
+
+          var avgSupport = Math.round((st.support.residents + st.support.business + st.support.tourism) / 3);
+          var fb = document.getElementById("simInstantFeedback");
+          fb.textContent = "✓ קולך נקלט! " + avgSupport + "% מכלל המשתתפים מסכימים עם היגד זה. עובר להיגד הבא...";
+          fb.classList.remove("hidden");
+
+          setTimeout(function() {
+            currentStmtIndex = (currentStmtIndex + 1) % statements.length;
+            renderCurrentStatement();
+          }, 1100);
+        });
+      });
+
+      document.getElementById("prevStmtBtn").addEventListener("click", function() {
+        currentStmtIndex = (currentStmtIndex - 1 + statements.length) % statements.length;
+        renderCurrentStatement();
+      });
+
+      document.getElementById("nextStmtBtn").addEventListener("click", function() {
+        currentStmtIndex = (currentStmtIndex + 1) % statements.length;
+        renderCurrentStatement();
+      });
+
+      renderCurrentStatement();
+
+      // --- 4. AI Guardrail Simulator ---
+      var guardrailInput = document.getElementById("guardrailInput");
+      var statusTitle = document.getElementById("guardrailStatusTitle");
+      var reasonEl = document.getElementById("guardrailReason");
+      var reframedEl = document.getElementById("guardrailReframedText");
+      var resultBox = document.getElementById("guardrailResultBox");
+      var approvedToast = document.getElementById("reframedApprovedToast");
+
+      document.querySelectorAll(".sample-rant-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          guardrailInput.value = btn.getAttribute("data-sample-input");
+          evaluateGuardrailText(guardrailInput.value);
+        });
+      });
+
+      function evaluateGuardrailText(rawText) {
+        approvedToast.classList.add("hidden");
+        var text = rawText.trim();
+        if (!text) return;
+
+        if (text.indexOf("מושחתים") !== -1 || text.indexOf("מקורב") !== -1) {
+          resultBox.className = "bg-slate-900/90 border border-rose-500/50 rounded-xl p-5 space-y-4";
+          statusTitle.textContent = "נחסם אוטומטית: חשש ללשון הרע והאשמה ללא אסמכתא";
+          statusTitle.parentElement.className = "flex items-center gap-2 text-rose-400 font-bold text-sm";
+          reasonEl.textContent = "המערכת זיהתה האשמה בשחיתות כלפי עובדי ציבור ('מושחתים', 'מקורב לצלחת') שעלולה לחשוף את המקומון לתביעת דיבה. ה-AI חילץ את הטענה המהותית לגבי שקיפות האכיפה באזור התעשייה:";
+          reframedEl.textContent = "\"יש לפרסם מדיניות אכיפת חניה שקופה ואחידה באזור התעשייה, תוך מתן התראה או הקצאת חניות ייעודיות לעובדי העסקים.\"";
+        } else if (text.indexOf("חוצפנים") !== -1 || text.indexOf("לפנצ'ר") !== -1 || text.indexOf("גונבים") !== -1) {
+          resultBox.className = "bg-slate-900/90 border border-amber-500/40 rounded-xl p-5 space-y-4";
+          statusTitle.textContent = "זוהתה שפה מתלהמת / קריאה לפגיעה ברכוש — הוצע ניסוח מגשר";
+          statusTitle.parentElement.className = "flex items-center gap-2 text-amber-400 font-bold text-sm";
+          reasonEl.textContent = "המערכת חסמה ביטויים כגון 'לפנצ'ר' ו'חוצפנים', והמירה את התסכול המוצדק של תושבי השכונות להצעת מדיניות קונקרטית שניתן להצביע עליה:";
+          reframedEl.textContent = "\"יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל גרירה לחניון מוסדר.\"";
+        } else {
+          resultBox.className = "bg-slate-900/90 border border-emerald-500/40 rounded-xl p-5 space-y-4";
+          statusTitle.textContent = "✓ ההיגד תקין, ענייני ונקי מלשון הרע";
+          statusTitle.parentElement.className = "flex items-center gap-2 text-emerald-400 font-bold text-sm";
+          reasonEl.textContent = "לא זוהו שמות פרטיים, קללות או השמצות. ההיגד מנוסח כהצעה ברורה שיכולה לעלות להצבעת הקוראים:";
+          reframedEl.textContent = "\"" + text + "\"";
+        }
+      }
+
+      document.getElementById("runGuardrailBtn").addEventListener("click", function() {
+        evaluateGuardrailText(guardrailInput.value);
+      });
+
+      document.getElementById("approveReframedBtn").addEventListener("click", function() {
+        approvedToast.classList.remove("hidden");
+      });
+
+      // --- 5. Copy Newspaper Draft Button ---
+      document.getElementById("copyArticleDraftBtn").addEventListener("click", function() {
+        var text = document.getElementById("newspaperDraftContent").innerText;
+        var toast = document.getElementById("copyToastMsg");
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() {
+            toast.classList.remove("hidden");
+            setTimeout(function() { toast.classList.add("hidden"); }, 2500);
+          }).catch(function() {
+            fallbackCopy(text, toast);
+          });
+        } else {
+          fallbackCopy(text, toast);
+        }
+      });
+
+      function fallbackCopy(text, toast) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        toast.classList.remove("hidden");
+        setTimeout(function() { toast.classList.add("hidden"); }, 2500);
+      }
+
+      // --- 6. ROI & Engagement Calculator ---
+      var visitorsSlider = document.getElementById("monthlyVisitorsSlider");
+      var rateSlider = document.getElementById("participationRateSlider");
+
+      function updateRoiCalc() {
+        var visitors = parseInt(visitorsSlider.value, 10);
+        var rate = parseInt(rateSlider.value, 10);
+        var activeVoters = Math.round(visitors * (rate / 100));
+        var totalVotes = activeVoters * 7;
+        var proposals = Math.round(activeVoters * 0.05);
+
+        document.getElementById("monthlyVisitorsVal").textContent = visitors.toLocaleString("he-IL");
+        document.getElementById("participationRateVal").textContent = rate + "%";
+        document.getElementById("calcActiveVoters").textContent = activeVoters.toLocaleString("he-IL");
+        document.getElementById("calcTotalVotes").textContent = totalVotes.toLocaleString("he-IL");
+        document.getElementById("calcNewProposals").textContent = proposals.toLocaleString("he-IL");
+      }
+
+      visitorsSlider.addEventListener("input", updateRoiCalc);
+      rateSlider.addEventListener("input", updateRoiCalc);
+      updateRoiCalc();
+    })();
+  </script>
+</body>
+</html>
