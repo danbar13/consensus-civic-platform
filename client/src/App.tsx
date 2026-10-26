@@ -63,7 +63,14 @@ export function App() {
     setSessionId(sid);
 
     if (isPitchParam || initialTabParam === 'pitch') {
-      setActiveTab('pitch');
+      window.location.replace('/pitch.html');
+      return;
+    }
+
+    // If visiting the root URL without specific parameters, redirect to the Spark pitch landing page
+    if (!urlParams.get('tab') && !urlParams.get('embed') && !urlParams.get('topic') && !urlParams.get('pitch')) {
+      window.location.replace('/pitch.html');
+      return;
     }
 
     async function init() {
@@ -179,13 +186,13 @@ export function App() {
             <span>המצפן העירוני – ערב ערב באילת</span>
             <span className="text-slate-800 font-normal hidden sm:inline">| אתה צופה במערכת הפעילה</span>
           </div>
-          <button
-            onClick={() => setActiveTab('pitch')}
+          <a
+            href="/pitch.html"
             className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-white transition text-xs font-black shadow-xs"
           >
             <ArrowRight className="w-3.5 h-3.5" />
             <span>חזור לדף הנחיתה ↩️</span>
-          </button>
+          </a>
         </div>
       )}
 

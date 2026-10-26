@@ -350,18 +350,14 @@ export const Header: React.FC<HeaderProps> = ({
               <span>ניהול וסינון</span>
             </button>
 
-            <button
-              onClick={() => onSelectTab('pitch')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
-                activeTab === 'pitch'
-                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-md shadow-amber-400/30'
-                  : 'text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200'
-              }`}
-              title="הצעה אסטרטגית למערכת ערב ערב באילת"
+            <a
+              href="/pitch.html"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
+              title="דף הנחיתה וההצעה האסטרטגית למערכת ערב ערב באילת"
             >
               <Briefcase className="w-4 h-4 text-amber-400" />
-              <span>{activeTab === 'pitch' ? 'דף נחיתה והצעה 💼' : 'חזור לדף הנחיתה ↩️'}</span>
-            </button>
+              <span>דף נחיתה והצעה 💼</span>
+            </a>
           </nav>
         </div>
       </div>

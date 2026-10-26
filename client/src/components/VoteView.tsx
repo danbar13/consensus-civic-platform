@@ -196,13 +196,13 @@ export const VoteView: React.FC<VoteViewProps> = ({
           <div className="text-xs font-bold text-amber-950 dark:text-amber-200">
             אתה צופה בווידג'ט ההצבעה החי של "המצפן העירוני"
           </div>
-          <button
-            onClick={onReturnToPitch}
+          <a
+            href="/pitch.html"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs shadow-xs transition"
           >
             <ArrowRight className="w-3.5 h-3.5" />
             <span>חזור לדף הנחיתה ↩️</span>
-          </button>
+          </a>
         </div>
       )}
 
