@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
 import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes } from './api';
@@ -165,16 +165,23 @@ export function App() {
     saveGroup(currentTopic.id, groupId);
   };
 
-  const handleVoteCast = async (statementId: number, voteVal: number) => {
+  const analyticsTimerRef = useRef<any>(null);
+
+  const handleVoteCast = (statementId: number, voteVal: number) => {
     setUserVotes(prev => ({
       ...prev,
       [statementId]: { vote: voteVal, group_id: currentGroup }
     }));
 
-    // Soft refresh analytics in background
-    if (currentTopic) {
-      fetchAnalytics(currentTopic.id).then(a => setAnalytics(a)).catch(console.error);
+    // Debounce background analytics reload by 1500ms so voting runs with zero network contention
+    if (analyticsTimerRef.current) {
+      clearTimeout(analyticsTimerRef.current);
     }
+    analyticsTimerRef.current = setTimeout(() => {
+      if (currentTopic) {
+        fetchAnalytics(currentTopic.id).then(a => setAnalytics(a)).catch(console.error);
+      }
+    }, 1500);
   };
 
   const handleStatementAdded = (newSt: Statement) => {
@@ -227,7 +234,12 @@ export function App() {
                 onChangeGroup={handleChangeGroup}
                 onVoteCast={handleVoteCast}
                 onStatementAdded={handleStatementAdded}
-                onNavigateToDashboard={() => setActiveTab('dashboard')}
+                onNavigateToDashboard={() => {
+                  setActiveTab('dashboard');
+                  if (currentTopic) {
+                    fetchAnalytics(currentTopic.id).then(a => setAnalytics(a)).catch(console.error);
+                  }
+                }}
                 onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
               />
             )}

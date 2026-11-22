@@ -180,7 +180,25 @@ export async function cloudGetTopics() {
   });
 }
 
+// In-memory Topic Cache to avoid redundant cloud round-trips during voting
+const topicCache = new Map();
+const TOPIC_CACHE_TTL = 30 * 1000; // 30 seconds cache
+
+export function invalidateTopicCache(id) {
+  if (id) {
+    topicCache.delete(id);
+  } else {
+    topicCache.clear();
+  }
+}
+
 export async function cloudGetTopic(id) {
+  const cached = topicCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  let result = null;
   if (isSupabaseActive && supabase) {
     try {
       const { data, error } = await supabase
@@ -191,21 +209,30 @@ export async function cloudGetTopic(id) {
 
       if (!error && data) {
         data.groups = typeof data.groups_json === 'string' ? JSON.parse(data.groups_json) : data.groups_json;
-        return data;
+        result = data;
       }
     } catch (err) {
       console.warn('Supabase getTopic failed, falling back to SQLite:', err.message);
     }
   }
 
-  const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
-  if (topic) {
-    topic.groups = JSON.parse(topic.groups_json);
+  if (!result) {
+    const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
+    if (topic) {
+      topic.groups = JSON.parse(topic.groups_json);
+      result = topic;
+    }
   }
-  return topic;
+
+  if (result) {
+    topicCache.set(id, { data: result, expiresAt: Date.now() + TOPIC_CACHE_TTL });
+  }
+
+  return result;
 }
 
 export async function cloudCreateTopic(topicData) {
+  invalidateTopicCache();
   if (isSupabaseActive && supabase) {
     try {
       const { data, error } = await supabase
@@ -269,6 +296,7 @@ export async function cloudGetTopicVotesCount(topicId) {
 }
 
 export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, closes_at }) {
+  invalidateTopicCache(id);
   if (isSupabaseActive && supabase) {
     try {
       const updateData = {};
@@ -335,6 +363,7 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
 }
 
 export async function cloudDeleteTopic(topicId) {
+  invalidateTopicCache(topicId);
   if (isSupabaseActive && supabase) {
     try {
       await supabase.from('votes').delete().eq('topic_id', topicId);
@@ -495,9 +524,25 @@ export async function cloudDeleteStatement(id) {
 export async function cloudRecordVote({ topic_id, statement_id, session_id, group_id, vote }) {
   const now = new Date().toISOString();
 
+  // 1. Immediately write to local SQLite for instant zero-latency caching & robustness
+  try {
+    const upsertSql = db.prepare(`
+      INSERT INTO votes (topic_id, statement_id, session_id, group_id, vote, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(statement_id, session_id) DO UPDATE SET
+        vote = excluded.vote,
+        group_id = excluded.group_id,
+        created_at = excluded.created_at
+    `);
+    upsertSql.run(topic_id, statement_id, session_id, group_id || 'residents', vote, now);
+  } catch (sqlErr) {
+    console.warn('SQLite vote write notice:', sqlErr.message);
+  }
+
+  // 2. Synchronize to Supabase Cloud in a single fast upsert (no redundant second query)
   if (isSupabaseActive && supabase) {
     try {
-      const { error } = await supabase.from('votes').upsert({
+      await supabase.from('votes').upsert({
         topic_id,
         statement_id,
         session_id,
@@ -505,48 +550,12 @@ export async function cloudRecordVote({ topic_id, statement_id, session_id, grou
         vote,
         created_at: now
       }, { onConflict: 'statement_id,session_id' });
-
-      if (!error) {
-        // Calculate quick micro-insight from Supabase
-        const { data: stVotes } = await supabase
-          .from('votes')
-          .select('vote')
-          .eq('statement_id', statement_id);
-
-        const votesList = stVotes || [];
-        const agrees = votesList.filter(v => v.vote === 1).length;
-        const decisive = votesList.filter(v => v.vote === 1 || v.vote === -1).length;
-        const supportPercent = decisive > 0 ? Math.round((agrees / decisive) * 100) : 0;
-
-        return {
-          success: true,
-          statementId: statement_id,
-          vote,
-          microInsight: {
-            totalVotes: votesList.length,
-            supportPercent,
-            text: decisive > 0
-              ? `${supportPercent}% מהמצביעים עד כה הסכימו עם היגד זה`
-              : 'אתה המצביע הראשון על היגד זה!'
-          }
-        };
-      }
     } catch (err) {
-      console.warn('Supabase recordVote failed, falling back to SQLite:', err.message);
+      console.warn('Supabase recordVote notice:', err.message);
     }
   }
 
-  // SQLite fallback
-  const upsert = db.prepare(`
-    INSERT INTO votes (topic_id, statement_id, session_id, group_id, vote, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(statement_id, session_id) DO UPDATE SET
-      vote = excluded.vote,
-      group_id = excluded.group_id,
-      created_at = excluded.created_at
-  `);
-  upsert.run(topic_id, statement_id, session_id, group_id || 'residents', vote, now);
-
+  // 3. Fast micro-insight calculation directly from local DB (<1ms)
   const totalVotes = db.prepare('SELECT vote FROM votes WHERE statement_id = ?').all(statement_id);
   const agrees = totalVotes.filter(v => v.vote === 1).length;
   const decisive = totalVotes.filter(v => v.vote === 1 || v.vote === -1).length;

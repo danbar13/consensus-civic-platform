@@ -45,7 +45,6 @@ export const VoteView: React.FC<VoteViewProps> = ({
   onNavigateToDashboard,
   onReturnToPitch
 }) => {
-  const [submittingVote, setSubmittingVote] = useState(false);
   const [microInsight, setMicroInsight] = useState<{ text: string; percent: number } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -83,59 +82,58 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
   const closingInfo = getClosingDetails(topic.closes_at);
 
-  // Handle single vote
-  const handleVote = async (statementId: number, voteVal: number) => {
-    if (submittingVote || isClosed) return;
-    setSubmittingVote(true);
+  // Handle single vote with instantaneous Optimistic UI (0ms perceived lag)
+  const handleVote = (statementId: number, voteVal: number) => {
+    if (isClosed) return;
 
-    try {
-      const res = await submitVote({
-        topic_id: topic.id,
-        statement_id: statementId,
-        session_id: sessionId,
-        group_id: currentGroup,
-        vote: voteVal
+    // 1. Immediately advance to next statement or complete state in 0 milliseconds
+    onVoteCast(statementId, voteVal);
+
+    // 2. Submit vote to server/cloud asynchronously in background
+    submitVote({
+      topic_id: topic.id,
+      statement_id: statementId,
+      session_id: sessionId,
+      group_id: currentGroup,
+      vote: voteVal
+    })
+      .then(res => {
+        if (res?.microInsight) {
+          setMicroInsight({
+            text: res.microInsight.text,
+            percent: res.microInsight.supportPercent
+          });
+          setTimeout(() => {
+            setMicroInsight(null);
+          }, 2400);
+        }
+      })
+      .catch(err => {
+        console.error('Error submitting vote in background:', err);
       });
-
-      // Show micro insight
-      if (res.microInsight) {
-        setMicroInsight({
-          text: res.microInsight.text,
-          percent: res.microInsight.supportPercent
-        });
-      }
-
-      onVoteCast(statementId, voteVal, res.microInsight);
-
-      // Auto dismiss micro insight after 2.4s
-      setTimeout(() => {
-        setMicroInsight(null);
-      }, 2400);
-    } catch (err) {
-      console.error('Error submitting vote:', err);
-    } finally {
-      setSubmittingVote(false);
-    }
   };
 
-  // Keyboard navigation for voting
+  // Keyboard navigation for voting (Instant response with arrow keys or 1/2/3)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
       if (!currentStatement || isClosed) return;
 
       if (e.key === 'ArrowRight' || e.key === '1') {
+        e.preventDefault();
         handleVote(currentStatement.id, 1);
       } else if (e.key === 'ArrowLeft' || e.key === '2') {
+        e.preventDefault();
         handleVote(currentStatement.id, -1);
       } else if (e.key === 'ArrowDown' || e.key === ' ' || e.key === '3') {
+        e.preventDefault();
         handleVote(currentStatement.id, 0);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStatement, currentGroup, submittingVote]);
+  }, [currentStatement, currentGroup, isClosed]);
 
   // Handle submitting a new statement with AI guardrail
   const handleAddStatementSubmit = async (textToSubmit?: string) => {
@@ -328,15 +326,26 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </div>
         <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
           <div 
-            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
       </div>
 
+      {/* Real-time Confirmation Toast / Micro-Insight */}
+      {microInsight && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 shadow-xs">
+          <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>ההצבעה נקלטה בהצלחה! {microInsight.text}</span>
+        </div>
+      )}
+
       {/* 3. TINDER / POLIS STYLE VOTING CARD */}
       {currentStatement ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div 
+          key={currentStatement.id} 
+          className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all animate-in fade-in slide-in-from-right-3 duration-150"
+        >
           {/* Card Top Pill */}
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-5">
             <span className="font-bold text-slate-400 dark:text-slate-500">היגד #{currentStatement.id}</span>
@@ -354,20 +363,12 @@ export const VoteView: React.FC<VoteViewProps> = ({
             </p>
           </div>
 
-          {/* Micro-Insight Flash Banner */}
-          {microInsight && (
-            <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-300 text-sm font-semibold flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>{microInsight.text}</span>
-            </div>
-          )}
-
           {/* Action Buttons: Agree, Disagree, Pass */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-3.5 border-t border-slate-100 dark:border-slate-800">
             {/* Agree Button */}
             <button
               onClick={() => handleVote(currentStatement.id, 1)}
-              disabled={submittingVote || isClosed}
+              disabled={isClosed}
               className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-base shadow-md shadow-emerald-700/20 transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
@@ -381,7 +382,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {/* Disagree Button */}
             <button
               onClick={() => handleVote(currentStatement.id, -1)}
-              disabled={submittingVote || isClosed}
+              disabled={isClosed}
               className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-base shadow-md shadow-rose-700/20 transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
@@ -395,7 +396,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {/* Pass / Neutral Button */}
             <button
               onClick={() => handleVote(currentStatement.id, 0)}
-              disabled={submittingVote || isClosed}
+              disabled={isClosed}
               className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-base transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
