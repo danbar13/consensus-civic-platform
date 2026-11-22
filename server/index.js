@@ -420,34 +420,42 @@ app.get('/api/topics/:id/analytics', async (req, res) => {
 // Export complete topic consensus data as CSV (Excel UTF-8 compatible)
 app.get('/api/topics/:id/export', async (req, res) => {
   try {
-    const topic = await cloudGetTopic(req.params.id);
+    const topicId = decodeURIComponent(req.params.id);
+    const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
-    const statements = await cloudGetStatements(req.params.id, 'approved');
-    const votes = await cloudGetVotesForTopic(req.params.id);
-    const analytics = computeTopicAnalytics(req.params.id, { topic, statements, votes });
+    const statements = await cloudGetStatements(topicId, 'approved');
+    const votes = await cloudGetVotesForTopic(topicId);
+    const analytics = computeTopicAnalytics(topicId, { topic, statements, votes });
 
     // Build CSV with UTF-8 BOM so Excel opens Hebrew properly without mojibake
     let csv = '\uFEFF';
     csv += `"דוח קונצנזוס אילתי - ${topic.title.replace(/"/g, '""')}"\n`;
     csv += `"ארגון מוביל","${topic.organization.replace(/"/g, '""')}"\n`;
     csv += `"תאריך הפקה","${new Date().toLocaleDateString('he-IL')}"\n`;
-    csv += `"סה""כ משתתפים","${analytics.metadata.totalParticipants}"\n`;
-    csv += `"סה""כ הצבעות","${analytics.metadata.totalVotesCast}"\n\n`;
+    csv += `"סה""כ משתתפים","${analytics?.meta?.totalParticipants || 0}"\n`;
+    csv += `"סה""כ הצבעות","${analytics?.meta?.totalVotesCast || 0}"\n\n`;
 
     csv += `"מזהה","היגד","קבוצה מציעה","סה""כ הצבעות","תמיכה כללית (%)","קולות בעד","קולות נגד","קולות נמנע","סיווג אלגוריתמי"\n`;
 
-    for (const st of analytics.statements) {
-      const typeLabel = st.isConsensus ? 'קונצנזוס רחב' : (st.isBridge ? 'גשר בין קבוצות' : (st.isPolarizing ? 'מחלוקת עמוקה' : 'רגיל'));
-      csv += `"${st.id}","${st.text.replace(/"/g, '""')}","${st.author_group}","${st.totalVotes}","${st.supportPercent}%","${st.agrees}","${st.disagrees}","${st.passes}","${typeLabel}"\n`;
+    if (analytics?.statements) {
+      for (const st of analytics.statements) {
+        const vs = st.votesSummary || {};
+        const typeLabel = st.isBridging 
+          ? 'היגד מגשר (Bridge)' 
+          : (st.isDivisive ? 'מחלוקת עמוקה (Divisive)' : (vs.overallSupportPercent >= 70 ? 'קונצנזוס רחב' : 'רגיל'));
+        csv += `"${st.id}","${st.text.replace(/"/g, '""')}","${st.author_group || ''}","${vs.total || 0}","${vs.overallSupportPercent || 0}%","${vs.agree || 0}","${vs.disagree || 0}","${vs.pass || 0}","${typeLabel}"\n`;
+      }
     }
 
+    const safeId = (topic.slug || topic.id || 'topic').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeFilename = `consensus_${safeId}_${Date.now()}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="consensus-${topic.id}-${Date.now()}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
     res.send(csv);
   } catch (err) {
     console.error('Error exporting CSV:', err);
-    res.status(500).json({ error: 'Failed to export CSV' });
+    res.status(500).json({ error: 'Failed to export CSV', details: err.message });
   }
 });
 

@@ -763,8 +763,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
               {/* Export to CSV Button */}
               <a
-                href={`/api/topics/${currentTopic.id}/export`}
-                download={`consensus-${currentTopic.id}.csv`}
+                href={`/api/topics/${encodeURIComponent(currentTopic.id)}/export`}
+                download={`consensus-${(currentTopic.slug || currentTopic.id).replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`}
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
                 title="הורדת קובץ אקסל (CSV בקידוד UTF-8) של כל תוצאות ההצבעה, ההיגדים והפילוחים"
               >
