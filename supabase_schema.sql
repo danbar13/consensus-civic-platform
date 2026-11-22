@@ -1,5 +1,5 @@
 -- =========================================================================
--- קונצנזוס | המצפן האילתי – סכמת נתונים מלאה עבור Supabase (PostgreSQL)
+-- קונצנזוס | המצפן האילתי – סכמת נתונים מלאה והרשאות עבור Supabase
 -- תואם למסלול החינמי של Supabase (Free Tier - 500MB)
 -- =========================================================================
 
@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS public.ai_logs (
   success INTEGER NOT NULL,
   error TEXT
 );
+
+-- =========================================================================
+-- הרשאות בסיסיות (Grants) לגישה דרך ה-API (anon ו-authenticated)
+-- =========================================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.topics TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.statements TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.votes TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.ai_logs TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 
 -- =========================================================================
 -- הרשאות גישה ומדיניות אבטחה (Row Level Security - RLS)
