@@ -1,6 +1,64 @@
-import type { Topic, Statement, TopicAnalytics, ModerationResult } from './types';
+import type { Topic, Statement, TopicAnalytics, ModerationResult, AIStats } from './types';
 
 const API_BASE = '/api';
+
+// Admin Session Token Management
+const ADMIN_TOKEN_KEY = 'consensus_admin_token';
+
+export function getAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function setAdminToken(token: string): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+  }
+}
+
+export function clearAdminToken(): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = getAdminToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function verifyAdminPassword(password: string): Promise<{ success: boolean; token?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/admin/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data.success && data.token) {
+    setAdminToken(data.token);
+    return { success: true, token: data.token };
+  }
+
+  return { success: false, error: data.error || 'סיסמה שגויה' };
+}
+
+export async function fetchAIStats(): Promise<AIStats> {
+  const res = await fetch(`${API_BASE}/admin/ai-stats`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch AI statistics');
+  }
+  return res.json();
+}
 
 export async function fetchTopics(): Promise<Topic[]> {
   const res = await fetch(`${API_BASE}/topics`);
@@ -84,7 +142,10 @@ export async function submitStatement(topicId: string, data: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to submit statement');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to submit statement');
+  }
   return res.json();
 }
 
@@ -94,18 +155,25 @@ export async function updateStatement(id: number, data: {
 }): Promise<Statement> {
   const res = await fetch(`${API_BASE}/statements/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to update statement');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update statement');
+  }
   return res.json();
 }
 
 export async function deleteStatement(id: number): Promise<{ success: boolean }> {
   const res = await fetch(`${API_BASE}/statements/${id}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to delete statement');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete statement');
+  }
   return res.json();
 }
 
@@ -121,7 +189,7 @@ export async function createTopic(data: {
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
   if (!res.ok) {
@@ -141,7 +209,7 @@ export async function updateTopic(id: string, data: {
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
   if (!res.ok) {
@@ -153,7 +221,8 @@ export async function updateTopic(id: string, data: {
 
 export async function deleteTopic(id: string): Promise<{ success: boolean; deletedId: string }> {
   const res = await fetch(`${API_BASE}/topics/${id}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

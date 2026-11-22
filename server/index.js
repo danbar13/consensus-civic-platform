@@ -9,6 +9,8 @@ import { db, initDatabase } from './db.js';
 import { computeTopicAnalytics } from './analytics.js';
 import { moderateStatement, generateConsensusReport, suggestTopicStatements } from './ai.js';
 import { checkSupabaseStatus, syncStatementToSupabase } from './supabase.js';
+import { statementRateLimiter } from './rateLimiter.js';
+import { getAIStats } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,9 +20,58 @@ initDatabase();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'eilat-admin-2025';
 
 app.use(cors());
 app.use(express.json());
+
+// Admin authentication middleware for protected management routes
+function requireAdminAuth(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader;
+  const customPass = req.headers['x-admin-password'] || '';
+
+  const validToken = Buffer.from(ADMIN_PASSWORD).toString('base64');
+  if (token === ADMIN_PASSWORD || customPass === ADMIN_PASSWORD || token === validToken) {
+    return next();
+  }
+
+  return res.status(401).json({ error: 'נדרשת סיסמת מנהל מורשה לביצוע פעולה זו.', unauthorized: true });
+}
+
+// -------------------------------------------------------------
+// ADMIN AUTH & OBSERVABILITY ENDPOINTS
+// -------------------------------------------------------------
+
+// Verify Admin Password
+app.post('/api/admin/verify', (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ success: false, error: 'יש להזין סיסמת מנהל' });
+    }
+
+    if (password === ADMIN_PASSWORD) {
+      const token = Buffer.from(ADMIN_PASSWORD).toString('base64');
+      return res.json({ success: true, token });
+    }
+
+    return res.status(401).json({ success: false, error: 'סיסמת מנהל שגויה. אנא נסה שוב.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Admin authentication failed' });
+  }
+});
+
+// AI Observability & Tracing Stats for Admin Panel
+app.get('/api/admin/ai-stats', requireAdminAuth, (req, res) => {
+  try {
+    const stats = getAIStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('Error fetching AI stats:', err);
+    res.status(500).json({ error: 'Failed to retrieve AI statistics' });
+  }
+});
 
 // -------------------------------------------------------------
 // TOPICS ENDPOINTS
@@ -70,7 +121,7 @@ app.get('/api/topics/:id', (req, res) => {
 });
 
 // Create new topic
-app.post('/api/topics', (req, res) => {
+app.post('/api/topics', requireAdminAuth, (req, res) => {
   try {
     const { id, title, subtitle, organization, category, groups, initialStatements, closes_at } = req.body;
     
@@ -131,7 +182,7 @@ app.post('/api/topics', (req, res) => {
 });
 
 // Update topic (ALLOWED ONLY IF NO VOTES/RESPONSES YET)
-app.patch('/api/topics/:id', (req, res) => {
+app.patch('/api/topics/:id', requireAdminAuth, (req, res) => {
   try {
     const topicId = req.params.id;
     const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
@@ -170,7 +221,7 @@ app.patch('/api/topics/:id', (req, res) => {
 });
 
 // Delete topic (and all associated statements & votes)
-app.delete('/api/topics/:id', (req, res) => {
+app.delete('/api/topics/:id', requireAdminAuth, (req, res) => {
   try {
     const topicId = req.params.id;
     const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
@@ -218,8 +269,8 @@ app.get('/api/topics/:id/statements', (req, res) => {
   }
 });
 
-// Submit a new statement
-app.post('/api/topics/:id/statements', async (req, res) => {
+// Submit a new statement (protected with rate limiter)
+app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) => {
   try {
     const { text, author_group, session_id } = req.body;
     if (!text || text.trim().length === 0) {
@@ -273,7 +324,7 @@ app.post('/api/topics/:id/statements', async (req, res) => {
 });
 
 // Update statement (status: 'approved' | 'rejected' | 'pending', or text edit)
-app.patch('/api/statements/:id', (req, res) => {
+app.patch('/api/statements/:id', requireAdminAuth, (req, res) => {
   try {
     const { status, text } = req.body;
     const st = db.prepare('SELECT * FROM statements WHERE id = ?').get(req.params.id);
@@ -293,7 +344,7 @@ app.patch('/api/statements/:id', (req, res) => {
 });
 
 // Delete statement
-app.delete('/api/statements/:id', (req, res) => {
+app.delete('/api/statements/:id', requireAdminAuth, (req, res) => {
   try {
     const st = db.prepare('SELECT * FROM statements WHERE id = ?').get(req.params.id);
     if (!st) return res.status(404).json({ error: 'Statement not found' });
@@ -437,8 +488,8 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
-// AI Guardrail & Rephrasing
-app.post('/api/ai/moderate', async (req, res) => {
+// AI Guardrail & Rephrasing (Rate limited)
+app.post('/api/ai/moderate', statementRateLimiter, async (req, res) => {
   try {
     const { text, topicTitle, topicCategory } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
@@ -455,8 +506,8 @@ app.post('/api/ai/moderate', async (req, res) => {
   }
 });
 
-// AI & Template Seed Statement Suggester
-app.post('/api/ai/suggest-statements', async (req, res) => {
+// AI & Template Seed Statement Suggester (Rate limited)
+app.post('/api/ai/suggest-statements', statementRateLimiter, async (req, res) => {
   try {
     const { title, category, organization } = req.body;
     const statements = await suggestTopicStatements({ title, category, organization });
@@ -467,8 +518,8 @@ app.post('/api/ai/suggest-statements', async (req, res) => {
   }
 });
 
-// AI Consensus Report Generator
-app.post('/api/ai/report', async (req, res) => {
+// AI Consensus Report Generator (Rate limited)
+app.post('/api/ai/report', statementRateLimiter, async (req, res) => {
   try {
     const { topicId, templateType } = req.body;
     const analytics = computeTopicAnalytics(topicId);

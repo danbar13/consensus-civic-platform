@@ -146,6 +146,20 @@ export function initDatabase() {
       FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
       FOREIGN KEY (statement_id) REFERENCES statements(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS ai_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT NOT NULL,
+      action TEXT NOT NULL,
+      model TEXT NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      prompt_tokens INTEGER DEFAULT 0,
+      candidates_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      estimated_cost_usd REAL DEFAULT 0,
+      success INTEGER NOT NULL,
+      error TEXT
+    );
   `);
 
   // Migrate closes_at column if not existing
