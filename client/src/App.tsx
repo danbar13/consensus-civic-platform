@@ -105,12 +105,6 @@ export function App() {
       return;
     }
 
-    // If visiting the root URL without specific parameters and not from pitch, redirect to the pitch landing page
-    if (!urlParams.get('tab') && !urlParams.get('embed') && !urlParams.get('topic') && !urlParams.get('pitch') && urlParams.get('from') !== 'pitch') {
-      window.location.replace('/pitch.html');
-      return;
-    }
-
     async function init() {
       try {
         const allTopics = await fetchTopics();
