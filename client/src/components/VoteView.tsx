@@ -207,9 +207,10 @@ export const VoteView: React.FC<VoteViewProps> = ({
       )}
 
       {/* 0. PROMINENT POLL TOPIC BANNER */}
-      <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-blue-800/40 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-lg border border-blue-800/40 space-y-3 text-center sm:text-right">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
+            <img src="/favicon.svg" alt="המצפן האילתי" className="w-5 h-5 rounded-md shadow-xs shrink-0" />
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-slate-950 shadow-xs">
               נושא המשאל
             </span>
@@ -217,7 +218,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
               {topic.organization}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             {closingInfo && (
               <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs ${
                 isClosed
@@ -239,7 +240,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </h1>
 
         {topic.subtitle && (
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal pt-0.5">
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal pt-0.5 max-w-3xl mx-auto sm:mx-0">
             {topic.subtitle}
           </p>
         )}
@@ -362,16 +363,16 @@ export const VoteView: React.FC<VoteViewProps> = ({
           )}
 
           {/* Action Buttons: Agree, Disagree, Pass */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-3.5 border-t border-slate-100 dark:border-slate-800">
             {/* Agree Button */}
             <button
               onClick={() => handleVote(currentStatement.id, 1)}
               disabled={submittingVote || isClosed}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-emerald-700/20 transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-base shadow-md shadow-emerald-700/20 transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
-              <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span>מסכים</span>
+              <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="leading-tight">מסכים</span>
               <span className="hidden lg:inline text-[11px] opacity-75 font-normal mr-1">
                 (חץ ימין)
               </span>
@@ -381,11 +382,11 @@ export const VoteView: React.FC<VoteViewProps> = ({
             <button
               onClick={() => handleVote(currentStatement.id, -1)}
               disabled={submittingVote || isClosed}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-sm sm:text-base shadow-md shadow-rose-700/20 transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-base shadow-md shadow-rose-700/20 transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
-              <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span>לא מסכים</span>
+              <ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="leading-tight">לא מסכים</span>
               <span className="hidden lg:inline text-[11px] opacity-75 font-normal mr-1">
                 (חץ שמאל)
               </span>
@@ -395,11 +396,11 @@ export const VoteView: React.FC<VoteViewProps> = ({
             <button
               onClick={() => handleVote(currentStatement.id, 0)}
               disabled={submittingVote || isClosed}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-3.5 sm:py-4 px-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 font-bold text-sm sm:text-base transition group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className={`flex flex-col sm:flex-row items-center justify-center text-center gap-1.5 sm:gap-2 py-3.5 sm:py-4 px-1.5 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-base transition cursor-pointer select-none group ${isClosed ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={isClosed ? 'המשאל נסגר להצבעות' : ''}
             >
-              <SkipForward className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:scale-110 transition-transform" />
-              <span>מדלג / ניטרלי</span>
+              <SkipForward className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="leading-tight">מדלג / ניטרלי</span>
               <span className="hidden lg:inline text-[11px] text-slate-400 dark:text-slate-500 font-normal mr-1">
                 (רווח)
               </span>
@@ -619,14 +620,14 @@ export const VoteView: React.FC<VoteViewProps> = ({
             )}
 
             {/* Submit Button */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+              <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-right">
                 ההצעה תתווסף תחת קבוצת: <span className="font-bold text-slate-800 dark:text-slate-200">{activeGroupObj.label}</span>
               </div>
               <button
                 onClick={() => handleAddStatementSubmit()}
                 disabled={isEvaluatingAI || newText.trim().length < 5}
-                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-sm transition flex items-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isEvaluatingAI ? (
                   <>

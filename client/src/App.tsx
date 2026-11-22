@@ -185,10 +185,11 @@ export function App() {
 
   if (loading && !currentTopic) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center space-y-4 bg-slate-900 text-white">
-        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
-        <div className="text-lg font-black tracking-wide">טוען את פלטפורמת הקונצנזוס...</div>
-        <div className="text-xs text-slate-400">המצפן העירוני | ערב ערב באילת</div>
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4 bg-slate-950 text-white p-4 text-center">
+        <img src="/favicon.svg" alt="המצפן האילתי" className="w-16 h-16 rounded-2xl shadow-xl border border-amber-400/40 animate-pulse" />
+        <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" />
+        <div className="text-lg font-black tracking-wide text-white">המצפן האילתי | קונצנזוס</div>
+        <div className="text-xs text-slate-400">טוען זירות דיון ומשאלים אזרחיים...</div>
       </div>
     );
   }

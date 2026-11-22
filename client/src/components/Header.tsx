@@ -164,22 +164,22 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-xl sticky top-0 z-40 border-b border-slate-800 dark:border-slate-800/80 transition-colors duration-200">
       {/* Top Banner & YomYom Branding */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-2.5 border-b border-slate-800 flex-wrap gap-2">
+        <div className="flex items-center justify-between py-2.5 border-b border-slate-800 flex-wrap gap-2.5">
           
           {/* Logo & Platform Name */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {/* YomYom Eilat Official Logo */}
             <a 
               href="https://www.yomyom.net/" 
               target="_blank" 
               rel="noreferrer"
-              className="flex items-center bg-slate-950/70 hover:bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 transition group"
+              className="flex items-center bg-slate-950/70 hover:bg-slate-950 px-2 py-1 sm:px-2.5 rounded-xl border border-slate-800 transition group shrink-0"
               title="בחסות עיתון 'יום יום באילת / ערב ערב באילת' – לחץ לפתיחת האתר"
             >
               <img 
                 src="/images/yomyom-logo-white.png" 
                 alt="יום יום באילת | ערב ערב באילת" 
-                className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-7 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
                 onError={(e) => {
                   // Fallback to remote if local image fails
                   const img = e.target as HTMLImageElement;
@@ -190,20 +190,28 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </a>
 
-            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+            <div className="h-6 w-px bg-slate-800 hidden sm:block shrink-0" />
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black tracking-tight text-white">קונצנזוס</span>
-                <span className="text-xs bg-amber-400/20 text-amber-300 font-semibold px-2 py-0.5 rounded-full border border-amber-400/30">
-                  Polis + AI
-                </span>
-                <span className="text-xs text-slate-400 hidden lg:inline">| מערכת משאלים, גישור ושיתוף ציבור חכם</span>
-              </div>
-              <div className="text-xs text-slate-300 font-medium flex items-center gap-1.5 mt-0.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-slate-400">זירה פעילה:</span>
-                <span className="text-amber-300 font-bold">{currentTopic?.organization || 'המצפן העירוני'}</span>
+            {/* Compass App Logo & Title */}
+            <div className="flex items-center gap-2">
+              <img 
+                src="/favicon.svg" 
+                alt="המצפן האילתי" 
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm border border-amber-400/40 shrink-0 object-contain"
+              />
+              <div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="text-base sm:text-lg font-black tracking-tight text-white leading-none">המצפן האילתי</span>
+                  <span className="text-[10px] sm:text-xs bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                    קונצנזוס
+                  </span>
+                  <span className="text-xs text-slate-400 hidden lg:inline">| מערכת משאלים וגישור חכם</span>
+                </div>
+                <div className="text-[11px] sm:text-xs text-slate-300 font-medium flex items-center gap-1.5 mt-0.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                  <span className="text-slate-400 hidden xs:inline">זירה פעילה:</span>
+                  <span className="text-amber-300 font-bold truncate max-w-[140px] sm:max-w-xs">{currentTopic?.organization || 'המצפן העירוני'}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -251,20 +259,20 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Topic Selector & Nav Tabs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between pt-3 pb-2 gap-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pt-2.5 pb-2 gap-2.5">
           {/* Topic Dropdown Switcher */}
-          <div className="relative">
+          <div className="relative w-full md:w-auto">
             <button
               onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
-              className="w-full sm:w-auto flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-right text-sm text-slate-100 transition shadow-inner"
+              className="w-full md:w-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-right text-xs sm:text-sm text-slate-100 transition shadow-inner cursor-pointer"
             >
               <div className="flex items-center gap-2 truncate">
                 {currentTopic && getCategoryIcon(currentTopic.category)}
-                <span className="font-bold truncate max-w-[260px] sm:max-w-md">
+                <span className="font-bold truncate max-w-[240px] sm:max-w-md">
                   {currentTopic?.title || 'בחר זירת דיון'}
                 </span>
               </div>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {topicDropdownOpen && (
@@ -273,10 +281,10 @@ export const Header: React.FC<HeaderProps> = ({
                   className="fixed inset-0 z-30" 
                   onClick={() => setTopicDropdownOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-96 max-w-[90vw] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 left-0 md:left-auto md:right-0 mt-2 w-full md:w-96 max-w-[calc(100vw-2rem)] mx-auto md:mx-0 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="p-2.5 bg-slate-950/80 text-xs font-semibold text-slate-400 flex items-center justify-between">
                     <span>זירות דיון ומשאלים זמינים:</span>
-                    <span className="text-[11px] text-amber-400">{topics.length} זירות</span>
+                    <span className="text-[11px] text-amber-400 font-bold">{topics.length} זירות</span>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {topics.map(t => {
@@ -288,11 +296,11 @@ export const Header: React.FC<HeaderProps> = ({
                             onSelectTopic(t.id);
                             setTopicDropdownOpen(false);
                           }}
-                          className={`w-full text-right p-3 hover:bg-slate-800/80 transition flex items-start gap-3 ${
+                          className={`w-full text-right p-3 hover:bg-slate-800/80 transition flex items-start gap-3 cursor-pointer ${
                             isSelected ? 'bg-slate-800/90 border-r-4 border-amber-400' : ''
                           }`}
                         >
-                          <div className="mt-0.5 p-1.5 rounded-lg bg-slate-800">
+                          <div className="mt-0.5 p-1.5 rounded-lg bg-slate-800 shrink-0">
                             {getCategoryIcon(t.category)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -314,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <nav className="flex items-center gap-1.5 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none w-full md:w-auto">
             <button
               onClick={() => onSelectTab('vote')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
