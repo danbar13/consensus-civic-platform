@@ -2,6 +2,15 @@ import { supabase, isSupabaseConfigured } from './supabase.js';
 import { db } from './db.js';
 
 let isSupabaseActive = false;
+let initPromise = null;
+
+export async function ensureSupabaseCloud() {
+  if (isSupabaseActive) return true;
+  if (!initPromise) {
+    initPromise = initSupabaseCloud();
+  }
+  return initPromise;
+}
 
 /**
  * Checks if Supabase tables exist and activates cloud persistence

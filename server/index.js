@@ -11,6 +11,7 @@ import { moderateStatement, generateConsensusReport, suggestTopicStatements } fr
 import { checkSupabaseStatus, syncStatementToSupabase } from './supabase.js';
 import { 
   initSupabaseCloud, 
+  ensureSupabaseCloud,
   isCloudActive, 
   cloudGetTopics, 
   cloudGetTopic, 
@@ -36,6 +37,14 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'eilat-admin-2025';
 
 app.use(cors());
 app.use(express.json());
+
+// Ensure Cloud DB is initialized before handling API requests
+app.use('/api', async (req, res, next) => {
+  try {
+    await ensureSupabaseCloud();
+  } catch {}
+  next();
+});
 
 // Admin authentication middleware for protected management routes
 function requireAdminAuth(req, res, next) {
