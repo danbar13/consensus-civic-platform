@@ -1,21 +1,23 @@
 import { db } from './db.js';
 
-export function computeTopicAnalytics(topicId) {
-  const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
+export function computeTopicAnalytics(topicId, customData = null) {
+  const topic = customData?.topic || db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
   if (!topic) return null;
 
-  const groups = JSON.parse(topic.groups_json);
+  const groups = typeof topic.groups_json === 'string' 
+    ? JSON.parse(topic.groups_json) 
+    : (topic.groups || topic.groups_json || []);
   const groupIds = groups.map(g => g.id);
 
   // Fetch approved statements for this topic
-  const statements = db.prepare(`
+  const statements = customData?.statements || db.prepare(`
     SELECT * FROM statements 
     WHERE topic_id = ? AND status = 'approved'
     ORDER BY id ASC
   `).all(topicId);
 
   // Fetch all votes for this topic
-  const votes = db.prepare(`
+  const votes = customData?.votes || db.prepare(`
     SELECT * FROM votes 
     WHERE topic_id = ?
   `).all(topicId);

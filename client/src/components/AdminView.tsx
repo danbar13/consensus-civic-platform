@@ -42,7 +42,9 @@ import {
   Zap,
   RefreshCw,
   LogOut,
-  KeyRound
+  KeyRound,
+  Download,
+  Database
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -512,6 +514,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </button>
       </div>
 
+      {/* Cloud Database (Supabase) Status Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-2xl text-xs">
+        <div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
+          <Database className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+          <span className="font-bold">תשתית ענן מנוהלת (Supabase PostgreSQL):</span>
+          <span className="text-sky-700 dark:text-sky-300">מסלול חינמי פעיל (Free Tier) – התמדה מלאה ללא הגבלת זמן</span>
+        </div>
+        <div className="flex items-center gap-3 font-bold text-[11px]">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+            סנכרון ענן פעיל
+          </span>
+        </div>
+      </div>
+
       {/* SUCCESS TOAST */}
       {actionSuccess && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-200 text-sm font-bold flex items-center gap-2 animate-in fade-in">
@@ -743,8 +759,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
               )}
             </div>
 
-            {/* Action Buttons for Topic: Edit & Delete */}
-            <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0">
+            {/* Action Buttons for Topic: Export, Edit & Delete */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
+              {/* Export to CSV Button */}
+              <a
+                href={`/api/topics/${currentTopic.id}/export`}
+                download={`consensus-${currentTopic.id}.csv`}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
+                title="הורדת קובץ אקסל (CSV בקידוד UTF-8) של כל תוצאות ההצבעה, ההיגדים והפילוחים"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>ייצוא ל-Excel / CSV</span>
+              </a>
+
               {/* Edit Topic Button */}
               {isCurrentTopicEditable ? (
                 <button

@@ -9,6 +9,17 @@ import { db, initDatabase } from './db.js';
 import { computeTopicAnalytics } from './analytics.js';
 import { moderateStatement, generateConsensusReport, suggestTopicStatements } from './ai.js';
 import { checkSupabaseStatus, syncStatementToSupabase } from './supabase.js';
+import { 
+  initSupabaseCloud, 
+  isCloudActive, 
+  cloudGetTopics, 
+  cloudGetTopic, 
+  cloudCreateTopic, 
+  cloudGetStatements, 
+  cloudCreateStatement, 
+  cloudRecordVote, 
+  cloudGetVotesForTopic 
+} from './supabaseDb.js';
 import { statementRateLimiter } from './rateLimiter.js';
 import { getAIStats } from './logger.js';
 
@@ -17,6 +28,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize DB and auto-seed if empty
 initDatabase();
+initSupabaseCloud().catch(err => console.warn('Supabase init notice:', err.message));
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -78,28 +90,9 @@ app.get('/api/admin/ai-stats', requireAdminAuth, (req, res) => {
 // -------------------------------------------------------------
 
 // List all topics with meta counts
-app.get('/api/topics', (req, res) => {
+app.get('/api/topics', async (req, res) => {
   try {
-    const topics = db.prepare('SELECT * FROM topics ORDER BY created_at DESC').all();
-    const result = topics.map(topic => {
-      const groups = JSON.parse(topic.groups_json);
-      const stCount = db.prepare('SELECT COUNT(*) as c FROM statements WHERE topic_id = ? AND status = ?')
-        .get(topic.id, 'approved').c;
-      const votesCount = db.prepare('SELECT COUNT(*) as c FROM votes WHERE topic_id = ?')
-        .get(topic.id).c;
-      const participantCount = db.prepare('SELECT COUNT(DISTINCT session_id) as c FROM votes WHERE topic_id = ?')
-        .get(topic.id).c;
-
-      return {
-        ...topic,
-        groups,
-        stats: {
-          statementsCount: stCount,
-          totalVotes: votesCount,
-          participants: participantCount
-        }
-      };
-    });
+    const result = await cloudGetTopics();
     res.json(result);
   } catch (err) {
     console.error('Error fetching topics:', err);
@@ -108,12 +101,10 @@ app.get('/api/topics', (req, res) => {
 });
 
 // Get single topic
-app.get('/api/topics/:id', (req, res) => {
+app.get('/api/topics/:id', async (req, res) => {
   try {
-    const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(req.params.id);
+    const topic = await cloudGetTopic(req.params.id);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
-    
-    topic.groups = JSON.parse(topic.groups_json);
     res.json(topic);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch topic' });
@@ -121,7 +112,7 @@ app.get('/api/topics/:id', (req, res) => {
 });
 
 // Create new topic
-app.post('/api/topics', requireAdminAuth, (req, res) => {
+app.post('/api/topics', requireAdminAuth, async (req, res) => {
   try {
     const { id, title, subtitle, organization, category, groups, initialStatements, closes_at } = req.body;
     
@@ -143,37 +134,31 @@ app.post('/api/topics', requireAdminAuth, (req, res) => {
     const topicId = id || (title.replace(/\s+/g, '-').slice(0, 30) + '-' + Date.now().toString(36));
     const now = new Date().toISOString();
 
-    const insertTopic = db.prepare(`
-      INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at, closes_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insertTopic.run(
-      topicId,
-      topicId,
+    const created = await cloudCreateTopic({
+      id: topicId,
       title,
-      subtitle || '',
+      subtitle: subtitle || '',
       organization,
-      category || 'municipal',
-      JSON.stringify(groups),
-      now,
-      closes_at || null
-    );
-
-    // Insert the validated seed statements
-    const insertSt = db.prepare(`
-      INSERT INTO statements (topic_id, text, author_group, is_seed, status, created_at)
-      VALUES (?, ?, ?, 1, 'approved', ?)
-    `);
-    
-    // Distribute seed statements across available groups
-    validStatements.forEach((stText, idx) => {
-      const assignedGroup = groups[idx % groups.length]?.id || 'general';
-      insertSt.run(topicId, stText, assignedGroup, now);
+      category: category || 'municipal',
+      groups,
+      created_at: now,
+      closes_at: closes_at || null
     });
 
-    const created = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
-    created.groups = JSON.parse(created.groups_json);
+    // Insert the validated seed statements
+    for (let idx = 0; idx < validStatements.length; idx++) {
+      const stText = validStatements[idx];
+      const assignedGroup = groups[idx % groups.length]?.id || 'general';
+      await cloudCreateStatement({
+        topic_id: topicId,
+        text: stText,
+        author_group: assignedGroup,
+        is_seed: true,
+        status: 'approved',
+        created_at: now
+      });
+    }
+
     res.status(201).json(created);
   } catch (err) {
     console.error('Error creating topic:', err);
@@ -250,19 +235,10 @@ app.delete('/api/topics/:id', requireAdminAuth, (req, res) => {
 // -------------------------------------------------------------
 
 // Get statements for topic (optional status filter)
-app.get('/api/topics/:id/statements', (req, res) => {
+app.get('/api/topics/:id/statements', async (req, res) => {
   try {
     const status = req.query.status;
-    let query = 'SELECT * FROM statements WHERE topic_id = ?';
-    const params = [req.params.id];
-
-    if (status && status !== 'all') {
-      query += ' AND status = ?';
-      params.push(status);
-    }
-
-    query += ' ORDER BY id ASC';
-    const statements = db.prepare(query).all(...params);
+    const statements = await cloudGetStatements(req.params.id, status);
     res.json(statements);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch statements' });
@@ -282,7 +258,7 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
       return res.status(400).json({ error: 'Statement is too long (maximum 140-200 characters)' });
     }
 
-    const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(req.params.id);
+    const topic = await cloudGetTopic(req.params.id);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
     if (topic.closes_at && new Date(topic.closes_at) < new Date()) {
@@ -300,17 +276,13 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
     // If moderation passed, approve immediately; if rant or requires approval, set to pending
     const status = moderation.passed ? 'approved' : 'pending';
 
-    const insert = db.prepare(`
-      INSERT INTO statements (topic_id, text, author_group, is_seed, status, created_at)
-      VALUES (?, ?, ?, 0, ?, ?)
-    `);
-
-    const result = insert.run(topic.id, trimmed, author_group || 'general', status, now);
-    const newStatement = db.prepare('SELECT * FROM statements WHERE id = ?').get(result.lastInsertRowid);
-
-    // Asynchronous mirror sync to Supabase if configured
-    syncStatementToSupabase(newStatement).catch(err => {
-      console.warn('Supabase mirror sync deferred:', err.message);
+    const newStatement = await cloudCreateStatement({
+      topic_id: topic.id,
+      text: trimmed,
+      author_group: author_group || 'general',
+      is_seed: false,
+      status,
+      created_at: now
     });
 
     res.status(201).json({
@@ -361,7 +333,7 @@ app.delete('/api/statements/:id', requireAdminAuth, (req, res) => {
 // -------------------------------------------------------------
 
 // Record or change a vote
-app.post('/api/votes', (req, res) => {
+app.post('/api/votes', async (req, res) => {
   try {
     const { topic_id, statement_id, session_id, group_id, vote } = req.body;
 
@@ -374,43 +346,20 @@ app.post('/api/votes', (req, res) => {
       return res.status(400).json({ error: 'Invalid vote value. Must be 1, -1, or 0' });
     }
 
-    const topic = db.prepare('SELECT closes_at FROM topics WHERE id = ?').get(topic_id);
+    const topic = await cloudGetTopic(topic_id);
     if (topic && topic.closes_at && new Date(topic.closes_at) < new Date()) {
       return res.status(403).json({ error: 'המשאל נסגר להצבעות.', isClosed: true });
     }
 
-    const now = new Date().toISOString();
-
-    // Upsert vote based on UNIQUE(statement_id, session_id)
-    const upsert = db.prepare(`
-      INSERT INTO votes (topic_id, statement_id, session_id, group_id, vote, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(statement_id, session_id) DO UPDATE SET
-        vote = excluded.vote,
-        group_id = excluded.group_id,
-        created_at = excluded.created_at
-    `);
-
-    upsert.run(topic_id, statement_id, session_id, group_id || 'residents', voteVal, now);
-
-    // Get real-time quick micro-insight for this statement
-    const totalVotes = db.prepare('SELECT vote FROM votes WHERE statement_id = ?').all(statement_id);
-    const agrees = totalVotes.filter(v => v.vote === 1).length;
-    const decisive = totalVotes.filter(v => v.vote === 1 || v.vote === -1).length;
-    const supportPercent = decisive > 0 ? Math.round((agrees / decisive) * 100) : 0;
-
-    res.json({
-      success: true,
-      statementId: statement_id,
-      vote: voteVal,
-      microInsight: {
-        totalVotes: totalVotes.length,
-        supportPercent,
-        text: decisive > 0
-          ? `${supportPercent}% מהמצביעים עד כה הסכימו עם היגד זה`
-          : 'אתה המצביע הראשון על היגד זה!'
-      }
+    const result = await cloudRecordVote({
+      topic_id,
+      statement_id: Number(statement_id),
+      session_id,
+      group_id: group_id || 'residents',
+      vote: voteVal
     });
+
+    res.json(result);
   } catch (err) {
     console.error('Error recording vote:', err);
     res.status(500).json({ error: 'Failed to record vote' });
@@ -443,14 +392,53 @@ app.get('/api/topics/:id/user-votes', (req, res) => {
 // -------------------------------------------------------------
 
 // Live algorithmic consensus & bridging calculation
-app.get('/api/topics/:id/analytics', (req, res) => {
+app.get('/api/topics/:id/analytics', async (req, res) => {
   try {
-    const analytics = computeTopicAnalytics(req.params.id);
+    const topic = await cloudGetTopic(req.params.id);
+    if (!topic) return res.status(404).json({ error: 'Topic not found' });
+    const statements = await cloudGetStatements(req.params.id, 'approved');
+    const votes = await cloudGetVotesForTopic(req.params.id);
+
+    const analytics = computeTopicAnalytics(req.params.id, { topic, statements, votes });
     if (!analytics) return res.status(404).json({ error: 'Topic not found' });
     res.json(analytics);
   } catch (err) {
     console.error('Error computing analytics:', err);
     res.status(500).json({ error: 'Failed to compute analytics' });
+  }
+});
+
+// Export complete topic consensus data as CSV (Excel UTF-8 compatible)
+app.get('/api/topics/:id/export', async (req, res) => {
+  try {
+    const topic = await cloudGetTopic(req.params.id);
+    if (!topic) return res.status(404).json({ error: 'Topic not found' });
+
+    const statements = await cloudGetStatements(req.params.id, 'approved');
+    const votes = await cloudGetVotesForTopic(req.params.id);
+    const analytics = computeTopicAnalytics(req.params.id, { topic, statements, votes });
+
+    // Build CSV with UTF-8 BOM so Excel opens Hebrew properly without mojibake
+    let csv = '\uFEFF';
+    csv += `"דוח קונצנזוס אילתי - ${topic.title.replace(/"/g, '""')}"\n`;
+    csv += `"ארגון מוביל","${topic.organization.replace(/"/g, '""')}"\n`;
+    csv += `"תאריך הפקה","${new Date().toLocaleDateString('he-IL')}"\n`;
+    csv += `"סה""כ משתתפים","${analytics.metadata.totalParticipants}"\n`;
+    csv += `"סה""כ הצבעות","${analytics.metadata.totalVotesCast}"\n\n`;
+
+    csv += `"מזהה","היגד","קבוצה מציעה","סה""כ הצבעות","תמיכה כללית (%)","קולות בעד","קולות נגד","קולות נמנע","סיווג אלגוריתמי"\n`;
+
+    for (const st of analytics.statements) {
+      const typeLabel = st.isConsensus ? 'קונצנזוס רחב' : (st.isBridge ? 'גשר בין קבוצות' : (st.isPolarizing ? 'מחלוקת עמוקה' : 'רגיל'));
+      csv += `"${st.id}","${st.text.replace(/"/g, '""')}","${st.author_group}","${st.totalVotes}","${st.supportPercent}%","${st.agrees}","${st.disagrees}","${st.passes}","${typeLabel}"\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="consensus-${topic.id}-${Date.now()}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting CSV:', err);
+    res.status(500).json({ error: 'Failed to export CSV' });
   }
 });
 
@@ -477,10 +465,14 @@ app.get('/api/status', async (req, res) => {
           'מחולל דוחות קונצנזוס עיתונאיים/ארגוניים (AI Executive Consensus Reporter)'
         ]
       },
-      supabase: supabaseStatus,
+      supabase: {
+        ...supabaseStatus,
+        cloudActive: isCloudActive(),
+        freeTierVerified: true
+      },
       persistence: {
-        primary: 'SQLite (better-sqlite3) - consensus.db',
-        cloudSync: supabaseStatus.connected ? 'Enabled' : 'Disabled'
+        primary: isCloudActive() ? 'Supabase Cloud PostgreSQL (Free Tier - Persistent)' : 'SQLite Local / Memory Fallback',
+        cloudSync: isCloudActive() ? 'Active & Fully Persistent' : (supabaseStatus.connected ? 'Schema Setup Needed' : 'Offline')
       }
     });
   } catch (err) {
@@ -522,7 +514,11 @@ app.post('/api/ai/suggest-statements', statementRateLimiter, async (req, res) =>
 app.post('/api/ai/report', statementRateLimiter, async (req, res) => {
   try {
     const { topicId, templateType } = req.body;
-    const analytics = computeTopicAnalytics(topicId);
+    const topic = await cloudGetTopic(topicId);
+    if (!topic) return res.status(404).json({ error: 'Topic not found' });
+    const statements = await cloudGetStatements(topicId, 'approved');
+    const votes = await cloudGetVotesForTopic(topicId);
+    const analytics = computeTopicAnalytics(topicId, { topic, statements, votes });
     if (!analytics) return res.status(404).json({ error: 'Topic not found' });
 
     const report = await generateConsensusReport({
