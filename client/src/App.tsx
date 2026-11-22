@@ -10,6 +10,10 @@ import { AIReportView } from './components/AIReportView';
 import { AdminView } from './components/AdminView';
 import { EmbedModal } from './components/EmbedModal';
 import { PitchDeckView } from './components/PitchDeckView';
+import { AccessibilityModal } from './components/AccessibilityModal';
+import { AccessibilityToolbar } from './components/AccessibilityToolbar';
+import { PrivacyModal } from './components/PrivacyModal';
+import { TermsModal } from './components/TermsModal';
 
 export function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -29,6 +33,9 @@ export function App() {
   const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [embedModalOpen, setEmbedModalOpen] = useState<boolean>(false);
+  const [accessibilityModalOpen, setAccessibilityModalOpen] = useState<boolean>(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState<boolean>(false);
+  const [termsModalOpen, setTermsModalOpen] = useState<boolean>(false);
 
   // Dark Mode State with URL parameter, LocalStorage persistence and system preference fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -300,6 +307,29 @@ export function App() {
         darkMode={darkMode}
       />
 
+      {/* Accessibility Modal */}
+      <AccessibilityModal
+        isOpen={accessibilityModalOpen}
+        onClose={() => setAccessibilityModalOpen(false)}
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyModal
+        isOpen={privacyModalOpen}
+        onClose={() => setPrivacyModalOpen(false)}
+      />
+
+      {/* Terms of Use Modal */}
+      <TermsModal
+        isOpen={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+      />
+
+      {/* Floating Accessibility Toolbar */}
+      <AccessibilityToolbar
+        onOpenStatement={() => setAccessibilityModalOpen(true)}
+      />
+
       {/* Footer */}
       {!isEmbed && (
         <footer className="bg-slate-900 dark:bg-slate-950 text-slate-400 text-xs py-10 border-t border-slate-800 transition-colors">
@@ -340,7 +370,31 @@ export function App() {
               </button>
             </div>
 
-            <div className="text-[11px] text-slate-600 pt-2">
+            {/* Legal, Privacy & Accessibility Links */}
+            <div className="flex items-center justify-center gap-4 text-xs font-medium text-slate-400 pt-3 border-t border-slate-800/80 flex-wrap">
+              <button
+                onClick={() => setAccessibilityModalOpen(true)}
+                className="hover:text-amber-400 underline underline-offset-2 transition"
+              >
+                הצהרת נגישות (ת"י 5568)
+              </button>
+              <span>•</span>
+              <button
+                onClick={() => setPrivacyModalOpen(true)}
+                className="hover:text-amber-400 underline underline-offset-2 transition"
+              >
+                מדיניות פרטיות ואבטחת מידע
+              </button>
+              <span>•</span>
+              <button
+                onClick={() => setTermsModalOpen(true)}
+                className="hover:text-amber-400 underline underline-offset-2 transition"
+              >
+                תנאי שימוש
+              </button>
+            </div>
+
+            <div className="text-[11px] text-slate-500 pt-1">
               כל ההצבעות נשמרות באופן אנונימי מבוסס מזהה סשן בלבד, ללא מעקב אישי או מסירת פרטים מזהים.
             </div>
           </div>

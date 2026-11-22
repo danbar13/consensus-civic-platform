@@ -255,6 +255,110 @@ export async function cloudCreateTopic(topicData) {
   return created;
 }
 
+export async function cloudGetTopicVotesCount(topicId) {
+  if (isSupabaseActive && supabase) {
+    try {
+      const { count, error } = await supabase
+        .from('votes')
+        .select('*', { count: 'exact', head: true })
+        .eq('topic_id', topicId);
+      if (!error && count !== null) return count;
+    } catch {}
+  }
+  return db.prepare('SELECT COUNT(*) as c FROM votes WHERE topic_id = ?').get(topicId)?.c || 0;
+}
+
+export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, closes_at }) {
+  if (isSupabaseActive && supabase) {
+    try {
+      const updateData = {};
+      if (title !== undefined) updateData.title = title.trim();
+      if (subtitle !== undefined) updateData.subtitle = subtitle.trim();
+      if (organization !== undefined) updateData.organization = organization.trim();
+      if (category !== undefined) updateData.category = category;
+      if (groups !== undefined) updateData.groups_json = groups;
+      if (closes_at !== undefined) updateData.closes_at = closes_at;
+
+      const { data, error } = await supabase
+        .from('topics')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error && data) {
+        data.groups = typeof data.groups_json === 'string' ? JSON.parse(data.groups_json) : data.groups_json;
+        try {
+          db.prepare(`
+            UPDATE topics 
+            SET title = coalesce(?, title), subtitle = coalesce(?, subtitle), 
+                organization = coalesce(?, organization), category = coalesce(?, category), 
+                groups_json = coalesce(?, groups_json), closes_at = coalesce(?, closes_at)
+            WHERE id = ?
+          `).run(
+            title !== undefined ? title.trim() : null,
+            subtitle !== undefined ? subtitle.trim() : null,
+            organization !== undefined ? organization.trim() : null,
+            category !== undefined ? category : null,
+            groups !== undefined ? JSON.stringify(groups) : null,
+            closes_at !== undefined ? closes_at : null,
+            id
+          );
+        } catch {}
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase updateTopic failed, falling back to SQLite:', err.message);
+    }
+  }
+
+  // SQLite fallback
+  const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
+  if (!topic) return null;
+
+  const newTitle = title !== undefined ? title.trim() : topic.title;
+  const newSubtitle = subtitle !== undefined ? subtitle.trim() : topic.subtitle;
+  const newOrg = organization !== undefined ? organization.trim() : topic.organization;
+  const newCategory = category !== undefined ? category : topic.category;
+  const newGroupsJson = groups !== undefined ? JSON.stringify(groups) : topic.groups_json;
+  const newClosesAt = closes_at !== undefined ? closes_at : topic.closes_at;
+
+  db.prepare(`
+    UPDATE topics 
+    SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, closes_at = ?
+    WHERE id = ?
+  `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newClosesAt, id);
+
+  const updated = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
+  updated.groups = JSON.parse(updated.groups_json);
+  return updated;
+}
+
+export async function cloudDeleteTopic(topicId) {
+  if (isSupabaseActive && supabase) {
+    try {
+      await supabase.from('votes').delete().eq('topic_id', topicId);
+      await supabase.from('statements').delete().eq('topic_id', topicId);
+      const { error } = await supabase.from('topics').delete().eq('id', topicId);
+      if (!error) {
+        try {
+          db.prepare('DELETE FROM votes WHERE topic_id = ?').run(topicId);
+          db.prepare('DELETE FROM statements WHERE topic_id = ?').run(topicId);
+          db.prepare('DELETE FROM topics WHERE id = ?').run(topicId);
+        } catch {}
+        return true;
+      }
+    } catch (err) {
+      console.warn('Supabase deleteTopic failed, falling back to SQLite:', err.message);
+    }
+  }
+
+  db.prepare('DELETE FROM votes WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM statements WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM topics WHERE id = ?').run(topicId);
+  return true;
+}
+
 // -------------------------------------------------------------
 // STATEMENTS
 // -------------------------------------------------------------
@@ -319,6 +423,69 @@ export async function cloudCreateStatement(stData) {
     stData.created_at
   );
   return db.prepare('SELECT * FROM statements WHERE id = ?').get(result.lastInsertRowid);
+}
+
+export async function cloudUpdateStatement({ id, status, text }) {
+  const numId = Number(id);
+  if (isSupabaseActive && supabase) {
+    try {
+      const updateData = {};
+      if (status !== undefined) updateData.status = status;
+      if (text !== undefined) updateData.text = text.trim();
+
+      const { data, error } = await supabase
+        .from('statements')
+        .update(updateData)
+        .eq('id', numId)
+        .select()
+        .single();
+
+      if (!error && data) {
+        try {
+          db.prepare('UPDATE statements SET status = coalesce(?, status), text = coalesce(?, text) WHERE id = ?')
+            .run(status, text !== undefined ? text.trim() : null, numId);
+        } catch {}
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase updateStatement failed, falling back to SQLite:', err.message);
+    }
+  }
+
+  // SQLite fallback
+  const st = db.prepare('SELECT * FROM statements WHERE id = ?').get(numId);
+  if (!st) return null;
+
+  const newStatus = status !== undefined ? status : st.status;
+  const newText = text !== undefined ? text.trim() : st.text;
+
+  db.prepare('UPDATE statements SET status = ?, text = ? WHERE id = ?')
+    .run(newStatus, newText, numId);
+
+  return db.prepare('SELECT * FROM statements WHERE id = ?').get(numId);
+}
+
+export async function cloudDeleteStatement(id) {
+  const numId = Number(id);
+  if (isSupabaseActive && supabase) {
+    try {
+      await supabase.from('votes').delete().eq('statement_id', numId);
+      const { error } = await supabase.from('statements').delete().eq('id', numId);
+      if (!error) {
+        try {
+          db.prepare('DELETE FROM votes WHERE statement_id = ?').run(numId);
+          db.prepare('DELETE FROM statements WHERE id = ?').run(numId);
+        } catch {}
+        return true;
+      }
+    } catch (err) {
+      console.warn('Supabase deleteStatement failed, falling back to SQLite:', err.message);
+    }
+  }
+
+  db.prepare('DELETE FROM votes WHERE statement_id = ?').run(numId);
+  db.prepare('DELETE FROM statements WHERE id = ?').run(numId);
+  return true;
 }
 
 // -------------------------------------------------------------
@@ -414,4 +581,37 @@ export async function cloudGetVotesForTopic(topicId) {
   }
 
   return db.prepare('SELECT * FROM votes WHERE topic_id = ?').all(topicId);
+}
+
+export async function cloudGetUserVotes(topicId, sessionId) {
+  if (isSupabaseActive && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('votes')
+        .select('statement_id, vote, group_id')
+        .eq('topic_id', topicId)
+        .eq('session_id', sessionId);
+
+      if (!error && data) {
+        const voteMap = {};
+        for (const v of data) {
+          voteMap[v.statement_id] = { vote: v.vote, group_id: v.group_id };
+        }
+        return voteMap;
+      }
+    } catch (err) {
+      console.warn('Supabase getUserVotes failed, falling back to SQLite:', err.message);
+    }
+  }
+
+  const votes = db.prepare(`
+    SELECT statement_id, vote, group_id FROM votes
+    WHERE topic_id = ? AND session_id = ?
+  `).all(topicId, sessionId);
+
+  const voteMap = {};
+  for (const v of votes) {
+    voteMap[v.statement_id] = { vote: v.vote, group_id: v.group_id };
+  }
+  return voteMap;
 }

@@ -16,12 +16,19 @@ import {
   cloudGetTopics, 
   cloudGetTopic, 
   cloudCreateTopic, 
+  cloudUpdateTopic,
+  cloudDeleteTopic,
+  cloudGetTopicVotesCount,
   cloudGetStatements, 
   cloudCreateStatement, 
+  cloudUpdateStatement,
+  cloudDeleteStatement,
   cloudRecordVote, 
-  cloudGetVotesForTopic 
+  cloudGetVotesForTopic,
+  cloudGetUserVotes
 } from './supabaseDb.js';
-import { statementRateLimiter } from './rateLimiter.js';
+import { statementRateLimiter, voteRateLimiter, adminLoginRateLimiter } from './rateLimiter.js';
+import { generateAdminToken, verifyAdminToken } from './auth.js';
 import { getAIStats } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,8 +59,7 @@ function requireAdminAuth(req, res, next) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader;
   const customPass = req.headers['x-admin-password'] || '';
 
-  const validToken = Buffer.from(ADMIN_PASSWORD).toString('base64');
-  if (token === ADMIN_PASSWORD || customPass === ADMIN_PASSWORD || token === validToken) {
+  if (verifyAdminToken(token) || verifyAdminToken(customPass)) {
     return next();
   }
 
@@ -64,8 +70,8 @@ function requireAdminAuth(req, res, next) {
 // ADMIN AUTH & OBSERVABILITY ENDPOINTS
 // -------------------------------------------------------------
 
-// Verify Admin Password
-app.post('/api/admin/verify', (req, res) => {
+// Verify Admin Password with brute-force rate limiter and cryptographically signed token
+app.post('/api/admin/verify', adminLoginRateLimiter, (req, res) => {
   try {
     const { password } = req.body || {};
     if (!password) {
@@ -73,7 +79,7 @@ app.post('/api/admin/verify', (req, res) => {
     }
 
     if (password === ADMIN_PASSWORD) {
-      const token = Buffer.from(ADMIN_PASSWORD).toString('base64');
+      const token = generateAdminToken();
       return res.json({ success: true, token });
     }
 
@@ -176,14 +182,14 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
 });
 
 // Update topic (ALLOWED ONLY IF NO VOTES/RESPONSES YET)
-app.patch('/api/topics/:id', requireAdminAuth, (req, res) => {
+app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
   try {
     const topicId = req.params.id;
-    const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
+    const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
     // Check if topic already has votes/responses
-    const votesCount = db.prepare('SELECT COUNT(*) as c FROM votes WHERE topic_id = ?').get(topicId).c;
+    const votesCount = await cloudGetTopicVotesCount(topicId);
     if (votesCount > 0) {
       return res.status(400).json({ 
         error: `לא ניתן לערוך זירת דיון שכבר נרשמו בה תגובות או הצבעות מן הציבור (קיימות ${votesCount} הצבעות פעילות).` 
@@ -191,22 +197,16 @@ app.patch('/api/topics/:id', requireAdminAuth, (req, res) => {
     }
 
     const { title, subtitle, organization, category, groups, closes_at } = req.body;
+    const updated = await cloudUpdateTopic({
+      id: topicId,
+      title,
+      subtitle,
+      organization,
+      category,
+      groups,
+      closes_at
+    });
 
-    const newTitle = title !== undefined ? title.trim() : topic.title;
-    const newSubtitle = subtitle !== undefined ? subtitle.trim() : topic.subtitle;
-    const newOrg = organization !== undefined ? organization.trim() : topic.organization;
-    const newCategory = category !== undefined ? category : topic.category;
-    const newGroupsJson = groups !== undefined ? JSON.stringify(groups) : topic.groups_json;
-    const newClosesAt = closes_at !== undefined ? closes_at : topic.closes_at;
-
-    db.prepare(`
-      UPDATE topics 
-      SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, closes_at = ?
-      WHERE id = ?
-    `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newClosesAt, topicId);
-
-    const updated = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
-    updated.groups = JSON.parse(updated.groups_json);
     res.json(updated);
   } catch (err) {
     console.error('Error updating topic:', err);
@@ -215,23 +215,19 @@ app.patch('/api/topics/:id', requireAdminAuth, (req, res) => {
 });
 
 // Delete topic (and all associated statements & votes)
-app.delete('/api/topics/:id', requireAdminAuth, (req, res) => {
+app.delete('/api/topics/:id', requireAdminAuth, async (req, res) => {
   try {
     const topicId = req.params.id;
-    const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(topicId);
+    const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
     // Ensure at least one topic remains in the system
-    const totalTopics = db.prepare('SELECT COUNT(*) as c FROM topics').get().c;
-    if (totalTopics <= 1) {
+    const allTopics = await cloudGetTopics();
+    if (allTopics.length <= 1) {
       return res.status(400).json({ error: 'לא ניתן למחוק את זירת הדיון היחידה שנותרה במערכת.' });
     }
 
-    // Delete in cascade
-    db.prepare('DELETE FROM votes WHERE topic_id = ?').run(topicId);
-    db.prepare('DELETE FROM statements WHERE topic_id = ?').run(topicId);
-    db.prepare('DELETE FROM topics WHERE id = ?').run(topicId);
-
+    await cloudDeleteTopic(topicId);
     res.json({ success: true, deletedId: topicId });
   } catch (err) {
     console.error('Error deleting topic:', err);
@@ -305,34 +301,30 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
 });
 
 // Update statement (status: 'approved' | 'rejected' | 'pending', or text edit)
-app.patch('/api/statements/:id', requireAdminAuth, (req, res) => {
+app.patch('/api/statements/:id', requireAdminAuth, async (req, res) => {
   try {
     const { status, text } = req.body;
-    const st = db.prepare('SELECT * FROM statements WHERE id = ?').get(req.params.id);
-    if (!st) return res.status(404).json({ error: 'Statement not found' });
+    const updated = await cloudUpdateStatement({
+      id: req.params.id,
+      status,
+      text
+    });
 
-    const newStatus = status !== undefined ? status : st.status;
-    const newText = text !== undefined ? text.trim() : st.text;
-
-    db.prepare('UPDATE statements SET status = ?, text = ? WHERE id = ?')
-      .run(newStatus, newText, req.params.id);
-
-    const updated = db.prepare('SELECT * FROM statements WHERE id = ?').get(req.params.id);
+    if (!updated) return res.status(404).json({ error: 'Statement not found' });
     res.json(updated);
   } catch (err) {
+    console.error('Error updating statement:', err);
     res.status(500).json({ error: 'Failed to update statement' });
   }
 });
 
 // Delete statement
-app.delete('/api/statements/:id', requireAdminAuth, (req, res) => {
+app.delete('/api/statements/:id', requireAdminAuth, async (req, res) => {
   try {
-    const st = db.prepare('SELECT * FROM statements WHERE id = ?').get(req.params.id);
-    if (!st) return res.status(404).json({ error: 'Statement not found' });
-
-    db.prepare('DELETE FROM statements WHERE id = ?').run(req.params.id);
+    await cloudDeleteStatement(req.params.id);
     res.json({ success: true, id: req.params.id });
   } catch (err) {
+    console.error('Error deleting statement:', err);
     res.status(500).json({ error: 'Failed to delete statement' });
   }
 });
@@ -341,8 +333,8 @@ app.delete('/api/statements/:id', requireAdminAuth, (req, res) => {
 // VOTING ENDPOINTS
 // -------------------------------------------------------------
 
-// Record or change a vote
-app.post('/api/votes', async (req, res) => {
+// Record or change a vote (Protected by rate limiter)
+app.post('/api/votes', voteRateLimiter, async (req, res) => {
   try {
     const { topic_id, statement_id, session_id, group_id, vote } = req.body;
 
@@ -375,23 +367,16 @@ app.post('/api/votes', async (req, res) => {
   }
 });
 
-// Get votes of a user/session for a topic
-app.get('/api/topics/:id/user-votes', (req, res) => {
+// Get votes of a user/session for a topic (Cloud synchronized)
+app.get('/api/topics/:id/user-votes', async (req, res) => {
   try {
     const sessionId = req.query.session_id;
     if (!sessionId) return res.json({});
 
-    const votes = db.prepare(`
-      SELECT statement_id, vote, group_id FROM votes
-      WHERE topic_id = ? AND session_id = ?
-    `).all(req.params.id, sessionId);
-
-    const voteMap = {};
-    for (const v of votes) {
-      voteMap[v.statement_id] = { vote: v.vote, group_id: v.group_id };
-    }
+    const voteMap = await cloudGetUserVotes(req.params.id, sessionId);
     res.json(voteMap);
   } catch (err) {
+    console.error('Error fetching user votes:', err);
     res.status(500).json({ error: 'Failed to fetch user votes' });
   }
 });
