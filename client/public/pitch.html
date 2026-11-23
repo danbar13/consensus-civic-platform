@@ -436,10 +436,14 @@
             <textarea id="guardrailInput" rows="3" maxlength="160" class="w-full rounded-xl bg-slate-950 border border-slate-700 text-white p-3 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none placeholder-slate-500" placeholder="כתבו כאן הצעה או תגובה של גולש...">כל החוצפנים שמשאירים רכב בשחמון לשבוע ויורדים לסיני גונבים לנו את החניה, צריך לפנצ'ר או לגרור אותם מיד!</textarea>
           </div>
 
-          <button type="button" id="runGuardrailBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30">
-            <span>🛡️</span>
-            <span>הפעל בדיקת AI, מניעת כפילויות וניסוח מגשר</span>
+          <button type="button" id="runGuardrailBtn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30 cursor-pointer">
+            <span id="runGuardrailBtnIcon">🛡️</span>
+            <span id="runGuardrailBtnText">הפעל בדיקת AI, מניעת כפילויות וניסוח מגשר</span>
           </button>
+          <div class="text-xs text-slate-400 text-center flex items-center justify-center gap-1.5 pt-0.5">
+            <span class="text-amber-400">👈</span>
+            <span>תוצאת הניתוח ומנגנון הקליטה מוצגים בכרטיס הסמוך משמאל (ובנייד: מתחת)</span>
+          </div>
         </div>
 
         <!-- Guardrail Output Result -->
@@ -573,6 +577,13 @@
           המערכת היא רב-נושאית — בכל שבוע פותחים זירה עירונית חדשה שמייצרת כותרות ומעורבות:
         </p>
 
+        <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 leading-relaxed">
+          <span class="text-base shrink-0">💡</span>
+          <div>
+            <strong>הערה חשובה לעורך:</strong> הנושאים המוצגים להלן הינם <strong>הצעה בלבד</strong> לצורך הדגמה, וניתנים לשינוי, עדכון, החלפה מלאה או תעדוף מחדש בכל עת, בהתאם לשיקול דעתה הבלעדי של מערכת העיתון.
+          </div>
+        </div>
+
         <div class="space-y-3">
           <div class="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between gap-3">
             <div>
@@ -613,9 +624,13 @@
   <!-- Section 4: 4-Step Editorial Workflow -->
   <section id="workflow" class="py-14 bg-slate-950 border-y border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center max-w-2xl mx-auto mb-10 space-y-2">
+      <div class="text-center max-w-3xl mx-auto mb-10 space-y-3">
         <h2 class="text-2xl sm:text-3xl font-extrabold text-white">אפס עומס טכני: איך זה עובד ביומיום של המערכת?</h2>
         <p class="text-sm sm:text-base text-slate-300">הטמעה פשוטה בשורת קוד אחת (Iframe) בתוך כתבה רגילה באתר yomyom.net</p>
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-200 text-xs text-right max-w-2xl">
+          <span class="text-base shrink-0">⏱️</span>
+          <span><strong>גמישות מלאה בלוח הזמנים:</strong> הלו"ז השבועי המוצג להלן הינו מודל עבודה מומלץ המותאם להורדה לדפוס בימי רביעי, אך ימי הפתיחה, הסגירה ומשך המשאל גמישים לחלוטין וניתנים להתאמה מלאה לבקשת העורך וצורכי המערכת.</span>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1263,6 +1278,9 @@
       var reframedEl = document.getElementById("guardrailReframedText");
       var resultBox = document.getElementById("guardrailResultBox");
       var approvedToast = document.getElementById("reframedApprovedToast");
+      var runGuardrailBtn = document.getElementById("runGuardrailBtn");
+      var runGuardrailBtnText = document.getElementById("runGuardrailBtnText");
+      var runGuardrailBtnIcon = document.getElementById("runGuardrailBtnIcon");
 
       document.querySelectorAll(".sample-rant-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
@@ -1276,31 +1294,54 @@
         var text = rawText.trim();
         if (!text) return;
 
-        if (text.indexOf("שדה התעופה") !== -1 || text.indexOf("חנה וסע") !== -1 || text.indexOf("שאטל") !== -1) {
-          resultBox.className = "bg-slate-900/90 border border-sky-500/50 rounded-xl p-5 space-y-4";
-          statusTitle.textContent = "🔄 זוהתה כפילות (Deduplication): רעיון זהה כבר קיים במשאל!";
-          statusTitle.parentElement.className = "flex items-center gap-2 text-sky-400 font-bold text-sm";
-          reasonEl.textContent = "מנוע ה-AI זיהה שההצעה שלך על 'חניון חנה וסע בשטח שדה התעופה עם שאטל' כבר קיימת כהיגד ברזל #1 של המערכת. במקום לפצל את קולות התושבים ולהעמיס היגדים כפולים, המערכת מפנה את הקורא להצביע ישירות על ההיגד המקורי:";
-          reframedEl.textContent = "\"הקמת חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני בשטח שדה התעופה הישן עם שאטל ישיר למעבר טאבה (היגד ברזל #1)\"";
-        } else if (text.indexOf("מושחתים") !== -1 || text.indexOf("מקורב") !== -1) {
-          resultBox.className = "bg-slate-900/90 border border-rose-500/50 rounded-xl p-5 space-y-4";
-          statusTitle.textContent = "נחסם אוטומטית: חשש ללשון הרע והאשמה ללא אסמכתא";
-          statusTitle.parentElement.className = "flex items-center gap-2 text-rose-400 font-bold text-sm";
-          reasonEl.textContent = "המערכת זיהתה האשמה בשחיתות כלפי עובדי ציבור ('מושחתים', 'מקורב לצלחת') שעלולה לחשוף את המקומון לתביעת דיבה. ה-AI חילץ את הטענה המהותית לגבי שקיפות האכיפה באזור התעשייה:";
-          reframedEl.textContent = "\"יש לפרסם מדיניות אכיפת חניה שקופה ואחידה באזור התעשייה, תוך מתן התראה או הקצאת חניות ייעודיות לעובדי העסקים.\"";
-        } else if (text.indexOf("חוצפנים") !== -1 || text.indexOf("לפנצ'ר") !== -1 || text.indexOf("גונבים") !== -1) {
-          resultBox.className = "bg-slate-900/90 border border-amber-500/40 rounded-xl p-5 space-y-4";
-          statusTitle.textContent = "זוהתה שפה מתלהמת / קריאה לפגיעה ברכוש — הוצע ניסוח מגשר";
-          statusTitle.parentElement.className = "flex items-center gap-2 text-amber-400 font-bold text-sm";
-          reasonEl.textContent = "המערכת חסמה ביטויים כגון 'לפנצ'ר' ו'חוצפנים', והמירה את התסכול המוצדק של תושבי השכונות להצעת מדיניות קונקרטית שנקלטת אוטומטית לענן:";
-          reframedEl.textContent = "\"יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל גרירה לחניון מוסדר.\"";
-        } else {
-          resultBox.className = "bg-slate-900/90 border border-emerald-500/40 rounded-xl p-5 space-y-4";
-          statusTitle.textContent = "✓ ההיגד תקין, ענייני, ייחודי ונקי מלשון הרע";
-          statusTitle.parentElement.className = "flex items-center gap-2 text-emerald-400 font-bold text-sm";
-          reasonEl.textContent = "לא זוהו שמות פרטיים, קללות, השמצות או כפילויות. ההיגד נבדק ומאושר אוטומטית לקליטה ישירה לסקר הקהילה בענן:";
-          reframedEl.textContent = "\"" + text + "\"";
+        // Show realistic AI processing feedback on button
+        if (runGuardrailBtnText) {
+          runGuardrailBtnText.textContent = "מנתח טקסט, בודק לשון הרע וכפילויות ב-AI...";
+          if (runGuardrailBtnIcon) runGuardrailBtnIcon.textContent = "⏳";
+          if (runGuardrailBtn) runGuardrailBtn.classList.add("animate-pulse");
         }
+
+        setTimeout(function() {
+          if (runGuardrailBtn) {
+            runGuardrailBtn.classList.remove("animate-pulse");
+          }
+
+          if (text.indexOf("שדה התעופה") !== -1 || text.indexOf("חנה וסע") !== -1 || text.indexOf("שאטל") !== -1) {
+            resultBox.className = "bg-slate-900/90 border-2 border-sky-400 rounded-xl p-5 space-y-4 shadow-xl shadow-sky-500/20";
+            statusTitle.textContent = "🔄 זוהתה כפילות (Deduplication): רעיון זהה כבר קיים במשאל!";
+            statusTitle.parentElement.className = "flex items-center gap-2 text-sky-400 font-bold text-sm";
+            reasonEl.textContent = "מנוע ה-AI זיהה שההצעה שלך על 'חניון חנה וסע בשטח שדה התעופה עם שאטל' כבר קיימת כהיגד ברזל #1 של המערכת. במקום לפצל את קולות התושבים ולהעמיס היגדים כפולים, המערכת מפנה את הקורא להצביע ישירות על ההיגד המקורי:";
+            reframedEl.textContent = "\"הקמת חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני בשטח שדה התעופה הישן עם שאטל ישיר למעבר טאבה (היגד ברזל #1)\"";
+          } else if (text.indexOf("מושחתים") !== -1 || text.indexOf("מקורב") !== -1) {
+            resultBox.className = "bg-slate-900/90 border-2 border-rose-500 rounded-xl p-5 space-y-4 shadow-xl shadow-rose-500/20";
+            statusTitle.textContent = "נחסם אוטומטית: חשש ללשון הרע והאשמה ללא אסמכתא";
+            statusTitle.parentElement.className = "flex items-center gap-2 text-rose-400 font-bold text-sm";
+            reasonEl.textContent = "המערכת זיהתה האשמה בשחיתות כלפי עובדי ציבור ('מושחתים', 'מקורב לצלחת') שעלולה לחשוף את המקומון לתביעת דיבה. ה-AI חילץ את הטענה המהותית לגבי שקיפות האכיפה באזור התעשייה:";
+            reframedEl.textContent = "\"יש לפרסם מדיניות אכיפת חניה שקופה ואחידה באזור התעשייה, תוך מתן התראה או הקצאת חניות ייעודיות לעובדי העסקים.\"";
+          } else if (text.indexOf("חוצפנים") !== -1 || text.indexOf("לפנצ'ר") !== -1 || text.indexOf("גונבים") !== -1) {
+            resultBox.className = "bg-slate-900/90 border-2 border-amber-400 rounded-xl p-5 space-y-4 shadow-xl shadow-amber-500/20";
+            statusTitle.textContent = "זוהתה שפה מתלהמת / קריאה לפגיעה ברכוש — הוצע ניסוח מגשר";
+            statusTitle.parentElement.className = "flex items-center gap-2 text-amber-400 font-bold text-sm";
+            reasonEl.textContent = "המערכת חסמה ביטויים כגון 'לפנצ'ר' ו'חוצפנים', והמירה את התסכול המוצדק של תושבי השכונות להצעת מדיניות קונקרטית שנקלטת אוטומטית לענן:";
+            reframedEl.textContent = "\"יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל גרירה לחניון מוסדר.\"";
+          } else {
+            resultBox.className = "bg-slate-900/90 border-2 border-emerald-400 rounded-xl p-5 space-y-4 shadow-xl shadow-emerald-500/20";
+            statusTitle.textContent = "✓ ההיגד תקין, ענייני, ייחודי ונקי מלשון הרע";
+            statusTitle.parentElement.className = "flex items-center gap-2 text-emerald-400 font-bold text-sm";
+            reasonEl.textContent = "לא זוהו שמות פרטיים, קללות, השמצות או כפילויות. ההיגד נבדק ומאושר אוטומטית לקליטה ישירה לסקר הקהילה בענן:";
+            reframedEl.textContent = "\"" + text + "\"";
+          }
+
+          if (runGuardrailBtnText) {
+            runGuardrailBtnText.textContent = "✓ הבדיקה הושלמה! ראה תוצאה משמאל (או מטה)";
+            if (runGuardrailBtnIcon) runGuardrailBtnIcon.textContent = "✓";
+          }
+
+          // On mobile screens, scroll result box smoothly into view
+          if (window.innerWidth < 1024) {
+            resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 400);
       }
 
       document.getElementById("runGuardrailBtn").addEventListener("click", function() {
