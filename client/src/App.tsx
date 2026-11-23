@@ -3,6 +3,19 @@ import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
 import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes, clearAdminToken } from './api';
 import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
+import { 
+  DEFAULT_TOPIC, 
+  DEFAULT_STATEMENTS, 
+  DEFAULT_ANALYTICS,
+  getCachedTopic,
+  setCachedTopic,
+  getCachedTopics,
+  setCachedTopics,
+  getCachedStatements,
+  setCachedStatements,
+  getCachedAnalytics,
+  setCachedAnalytics
+} from './defaultData';
 import { Header } from './components/Header';
 import { VoteView } from './components/VoteView';
 import { ConsensusDashboard } from './components/ConsensusDashboard';
@@ -16,8 +29,15 @@ import { PrivacyModal } from './components/PrivacyModal';
 import { TermsModal } from './components/TermsModal';
 
 export function App() {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [currentTopic, setCurrentTopic] = useState<Topic | null>(null);
+  // Check URL parameters
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const isEmbed = urlParams.get('embed') === 'true';
+  const initialTopicSlug = urlParams.get('topic') || 'eilat-parking';
+  const initialTabParam = urlParams.get('tab');
+  const isPitchParam = urlParams.get('pitch') === 'true';
+
+  const [topics, setTopics] = useState<Topic[]>(() => getCachedTopics() || [DEFAULT_TOPIC]);
+  const [currentTopic, setCurrentTopic] = useState<Topic>(() => getCachedTopic(initialTopicSlug) || DEFAULT_TOPIC);
   const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>(() => {
     if (typeof window === 'undefined') return 'vote';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -26,16 +46,35 @@ export function App() {
     }
     return 'vote';
   });
-  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(null);
-  const [statements, setStatements] = useState<Statement[]>([]);
+  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(() => getCachedAnalytics(initialTopicSlug) || DEFAULT_ANALYTICS);
+  const [statements, setStatements] = useState<Statement[]>(() => getCachedStatements(initialTopicSlug) || DEFAULT_STATEMENTS);
   const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>({});
-  const [currentGroup, setCurrentGroup] = useState<string>('residents');
+  const [currentGroup, setCurrentGroup] = useState<string>(() => {
+    const t = getCachedTopic(initialTopicSlug) || DEFAULT_TOPIC;
+    return getSavedGroup(t.id, t.groups[0]?.id || 'residents');
+  });
   const [sessionId, setSessionId] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [embedModalOpen, setEmbedModalOpen] = useState<boolean>(false);
   const [accessibilityModalOpen, setAccessibilityModalOpen] = useState<boolean>(false);
   const [privacyModalOpen, setPrivacyModalOpen] = useState<boolean>(false);
   const [termsModalOpen, setTermsModalOpen] = useState<boolean>(false);
+
+  // Scroll to top unconditionally on initial mount and when switching tabs or topics
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activeTab, currentTopic?.id]);
 
   // Dark Mode State with URL parameter, LocalStorage persistence and system preference fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -63,13 +102,6 @@ export function App() {
   const toggleDarkMode = () => {
     setDarkMode(prev => !prev);
   };
-
-  // Check URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  const isEmbed = urlParams.get('embed') === 'true';
-  const initialTopicSlug = urlParams.get('topic') || 'eilat-parking';
-  const initialTabParam = urlParams.get('tab');
-  const isPitchParam = urlParams.get('pitch') === 'true';
 
   // Check if arrived from pitch/landing page
   const [showReturnToPitch] = useState<boolean>(() => {
@@ -108,15 +140,19 @@ export function App() {
     async function init() {
       try {
         const allTopics = await fetchTopics();
-        setTopics(allTopics);
+        if (allTopics && allTopics.length > 0) {
+          setTopics(allTopics);
+          setCachedTopics(allTopics);
 
-        // Find initial topic or fallback to first
-        const selected = allTopics.find(t => t.id === initialTopicSlug || t.slug === initialTopicSlug) || allTopics[0];
-        if (selected) {
-          setCurrentTopic(selected);
-          const savedGrp = getSavedGroup(selected.id, selected.groups[0]?.id || 'residents');
-          setCurrentGroup(savedGrp);
-          await loadTopicData(selected.id, sid);
+          // Find initial topic or fallback to first
+          const selected = allTopics.find(t => t.id === initialTopicSlug || t.slug === initialTopicSlug) || allTopics[0];
+          if (selected) {
+            setCurrentTopic(selected);
+            setCachedTopic(selected);
+            const savedGrp = getSavedGroup(selected.id, selected.groups[0]?.id || 'residents');
+            setCurrentGroup(savedGrp);
+            await loadTopicData(selected.id, sid);
+          }
         }
       } catch (err) {
         console.error('Error initializing app:', err);
@@ -138,6 +174,8 @@ export function App() {
       setAnalytics(analyticsData);
       setStatements(statementsData);
       setUserVotes(votesData);
+      setCachedAnalytics(topicId, analyticsData);
+      setCachedStatements(topicId, statementsData);
     } catch (err) {
       console.error('Error loading topic data:', err);
     }
@@ -147,6 +185,7 @@ export function App() {
     const t = topics.find(item => item.id === topicId);
     if (!t) return;
     setCurrentTopic(t);
+    setCachedTopic(t);
     const grp = getSavedGroup(t.id, t.groups[0]?.id || 'residents');
     setCurrentGroup(grp);
     setLoading(true);
@@ -190,17 +229,6 @@ export function App() {
       fetchAnalytics(currentTopic.id).then(a => setAnalytics(a)).catch(console.error);
     }
   };
-
-  if (loading && !currentTopic) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center space-y-4 bg-slate-950 text-white p-4 text-center">
-        <img src="/favicon.svg" alt="המצפן האילתי" className="w-16 h-16 rounded-2xl shadow-xl border border-amber-400/40 animate-pulse" />
-        <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" />
-        <div className="text-lg font-black tracking-wide text-white">המצפן האילתי | קונצנזוס</div>
-        <div className="text-xs text-slate-400">טוען זירות דיון ומשאלים אזרחיים...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
