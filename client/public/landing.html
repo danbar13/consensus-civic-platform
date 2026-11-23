@@ -283,10 +283,10 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
         <div class="space-y-2">
-          <span class="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/15 border border-amber-400/30 px-3 py-1 rounded-full">סימולטור חי למקבלי ההחלטות</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold">כך זה ייראה בתוך כתבה באתר "ערב ערב באילת" (yomyom.net)</h2>
-          <p class="text-slate-300 text-sm sm:text-base max-w-2xl">
-            נסו בעצמכם את שלושת מצבי המערכת: <strong>1. הצבעת הקורא</strong>, <strong>2. בדיקת מנגנון הגנת לשון הרע (AI)</strong>, ו-<strong>3. דו"ח הקונצנזוס שמתקבל במערכת העיתון</strong>.
+          <span id="simBadge" class="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/15 border border-amber-400/30 px-3 py-1 rounded-full">1 מתוך 3: סימולטור הצבעה חי</span>
+          <h2 id="simMainTitle" class="text-2xl sm:text-3xl font-extrabold">1. חוויית הקורא והצבעה: כך זה ייראה בתוך כתבה באתר "ערב ערב באילת" (yomyom.net)</h2>
+          <p id="simMainDesc" class="text-slate-300 text-sm sm:text-base max-w-2xl">
+            התנסו בהצבעה על שאלון החניה האילתי, צפו במפת ההסכמות המתעדכנת בזמן אמת ובזיהוי אוטומטי של הצהרות הגשר.
           </p>
         </div>
 
@@ -1028,6 +1028,28 @@
         report: document.getElementById("sim-panel-report")
       };
 
+      var simTabMeta = {
+        vote: {
+          badge: "1 מתוך 3: סימולטור הצבעה חי",
+          title: "1. חוויית הקורא והצבעה: כך זה ייראה בתוך כתבה באתר \"ערב ערב באילת\" (yomyom.net)",
+          desc: "התנסו בהצבעה על שאלון החניה האילתי, צפו במפת ההסכמות המתעדכנת בזמן אמת ובזיהוי אוטומטי של הצהרות הגשר."
+        },
+        guardrail: {
+          badge: "2 מתוך 3: שער הבטיחות של ה-AI",
+          title: "2. מנוע AI: מניעת כפילויות והגנת לשון הרע בזמן אמת (Gemini AI)",
+          desc: "ראו כיצד המערכת מסננת שמות פרטיים והשמצות, מזהה היגדים כפולים שכבר קיימים, וממירה רעיונות תושבים להצעות מדיניות נקיות שנקלטות אוטומטית לענן."
+        },
+        report: {
+          badge: "3 מתוך 3: תוצר עיתונאי מוכן לדפוס",
+          title: "3. תוצר הכתבה לעיתון: דוח הקונצנזוס השבועי לגיליון יום חמישי",
+          desc: "טיוטת הכתבה המוכנה שמופקת אוטומטית מממצאי ההצבעה ביום רביעי, מוכנה לשילוב תגובת העירייה ולהורדה ישירה לדפוס."
+        }
+      };
+
+      var simBadgeEl = document.getElementById("simBadge");
+      var simMainTitleEl = document.getElementById("simMainTitle");
+      var simMainDescEl = document.getElementById("simMainDesc");
+
       simTabBtns.forEach(function(btn) {
         btn.addEventListener("click", function() {
           var target = btn.getAttribute("data-sim-tab");
@@ -1037,6 +1059,14 @@
           });
           btn.classList.add("bg-amber-500", "text-slate-950");
           btn.classList.remove("text-slate-300");
+
+          // Dynamically update section header, badge and description according to active tab
+          var meta = simTabMeta[target];
+          if (meta && simMainTitleEl) {
+            if (simBadgeEl) simBadgeEl.textContent = meta.badge;
+            simMainTitleEl.textContent = meta.title;
+            if (simMainDescEl) simMainDescEl.textContent = meta.desc;
+          }
 
           Object.keys(panels).forEach(function(k) {
             if (k === target) {
