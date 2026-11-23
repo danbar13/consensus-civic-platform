@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import type { Topic, Statement, AIStats } from '../types';
+import type { Topic, Statement, AIStats, TopicAnalytics } from '../types';
+import { AIReportView } from './AIReportView';
+import { ConsensusDashboard } from './ConsensusDashboard';
 import { 
   fetchStatements, 
   updateStatement, 
@@ -44,32 +46,41 @@ import {
   LogOut,
   KeyRound,
   Download,
-  Database
+  Database,
+  Eye,
+  BarChart3
 } from 'lucide-react';
 
 interface AdminViewProps {
   currentTopic: Topic;
   topics: Topic[];
+  analytics?: TopicAnalytics | null;
+  darkMode?: boolean;
   onTopicCreated: (newTopic: Topic) => void;
   onTopicUpdated: (updatedTopic: Topic) => void;
   onTopicDeleted: (deletedId: string) => void;
   onStatementsChanged: () => void;
   onSelectTopic: (topicId: string) => void;
   onReturnToPitch?: () => void;
+  onNavigateToVote?: () => void;
   onNavigateToReport?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
   currentTopic,
   topics,
+  analytics,
+  darkMode = false,
   onTopicCreated,
   onTopicUpdated,
   onTopicDeleted,
   onStatementsChanged,
   onSelectTopic,
   onReturnToPitch,
+  onNavigateToVote,
   onNavigateToReport
 }) => {
+  const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
   const [statements, setStatements] = useState<Statement[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -508,18 +519,107 @@ export const AdminView: React.FC<AdminViewProps> = ({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       
-      {/* Top Admin Status & Logout Bar */}
-      <div className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+      {/* Top Admin Status & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>מחובר כמנהל מערכת מורשה</span>
+          <span>שולחן עורכים ומנהלים מורשה</span>
+          <span className="text-slate-400">|</span>
+          <span className="text-amber-500 dark:text-amber-400 font-semibold truncate max-w-xs">{currentTopic.title}</span>
         </div>
+        <div className="flex items-center gap-2">
+          {onNavigateToVote && (
+            <button
+              onClick={onNavigateToVote}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800/60 transition cursor-pointer"
+              title="מעבר לשאלון כפי שרואה אותו התושב"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>שאלון תושב 👁️</span>
+            </button>
+          )}
+          <button
+            onClick={handleAdminLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-800/60 transition cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>התנתק</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Editorial Navigation Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
         <button
-          onClick={handleAdminLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-800/60 transition cursor-pointer"
+          onClick={() => setAdminSubTab('moderation')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'moderation'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>התנתק</span>
+          <ShieldCheck className="w-4 h-4" />
+          <span>סינון היגדים</span>
+        </button>
+
+        <button
+          onClick={() => setAdminSubTab('report')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'report'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>הכנת כתבה (AI Report) 📰</span>
+        </button>
+
+        <button
+          onClick={() => setAdminSubTab('results')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'results'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>מפת תוצאות וקונצנזוס</span>
+        </button>
+
+        <button
+          onClick={() => setAdminSubTab('topics')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'topics'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>ניהול זירות וסגירה</span>
+        </button>
+
+        <button
+          onClick={() => setAdminSubTab('observability')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'observability'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>מעקב עלויות AI ולוגים</span>
+        </button>
+
+        <button
+          onClick={() => setAdminSubTab('embed')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+            adminSubTab === 'embed'
+              ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Code2 className="w-4 h-4" />
+          <span>קודי הטמעה</span>
         </button>
       </div>
 
@@ -545,7 +645,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      {/* OBSERVABILITY & AI COST / PERFORMANCE TRACKING */}
+      {/* TAB 1: OBSERVABILITY & AI COST / PERFORMANCE TRACKING */}
+      {adminSubTab === 'observability' && (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -692,8 +793,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         ) : null}
       </div>
+      )}
 
-      {/* 1. TOPIC CONTROL & MANAGEMENT PANEL */}
+      {/* TAB 2: TOPIC CONTROL & MANAGEMENT PANEL */}
+      {adminSubTab === 'topics' && (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -912,8 +1015,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
-      {/* 2. EMBED SNIPPET GENERATOR */}
+      {/* TAB 3: EMBED SNIPPET GENERATOR */}
+      {adminSubTab === 'embed' && (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-4 transition-colors">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -997,8 +1102,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
           {embedCode}
         </div>
       </div>
+      )}
 
-      {/* 3. MODERATION & STATEMENTS MANAGEMENT */}
+      {/* TAB 4: MODERATION & STATEMENTS MANAGEMENT */}
+      {adminSubTab === 'moderation' && (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -1143,8 +1250,53 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
         </div>
       </div>
+      )}
 
-      {/* 4. MODAL: CREATE NEW TOPIC */}
+      {/* TAB 5: AI NEWSPAPER REPORT GENERATOR */}
+      {adminSubTab === 'report' && (
+        <div className="space-y-4">
+          {analytics ? (
+            <AIReportView topic={currentTopic} analytics={analytics} darkMode={darkMode} />
+          ) : (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+              טוען נתוני דוח קונצנזוס...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 6: CONSENSUS DASHBOARD (READ-ONLY VIEW FOR EDITORS - NO VOTING) */}
+      {adminSubTab === 'results' && (
+        <div className="space-y-4">
+          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs font-bold text-emerald-800 dark:text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>תצוגת עורכים וניתוח מעמיק: גרפים, היגדי גישור ומחלוקות (ללא הצבעות)</span>
+            </div>
+            {onNavigateToVote && (
+              <button
+                onClick={onNavigateToVote}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+              >
+                <span>מעבר להצבעה בשאלון האזרחי ↗</span>
+              </button>
+            )}
+          </div>
+          {analytics ? (
+            <ConsensusDashboard
+              analytics={analytics}
+              onRefresh={onStatementsChanged}
+              onNavigateToVote={() => onNavigateToVote && onNavigateToVote()}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+              טוען נתוני מפת תוצאות...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL: CREATE NEW TOPIC */}
       {showNewTopicModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto space-y-5 transition-colors">

@@ -131,15 +131,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             מפת תוצאות
           </button>
-          <button
-            onClick={() => onSelectTab('report')}
-            className={`px-2.5 py-1 rounded-md font-medium transition ${
-              activeTab === 'report' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-            title="הכנת כתבה בלחיצת כפתור"
-          >
-            הכנת כתבה 📰
-          </button>
         </div>
       </header>
     );
@@ -202,9 +193,16 @@ export const Header: React.FC<HeaderProps> = ({
               <div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <span className="text-base sm:text-lg font-black tracking-tight text-white leading-none">המצפן האילתי</span>
-                  <span className="text-[10px] sm:text-xs bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
-                    קונצנזוס
-                  </span>
+                  {activeTab === 'admin' ? (
+                    <span className="text-[10px] sm:text-xs bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                      <Settings2 className="w-3 h-3" />
+                      <span>שולחן עורכים וניהול</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] sm:text-xs bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                      קונצנזוס ציבורי
+                    </span>
+                  )}
                   <span className="text-xs text-slate-400 hidden lg:inline">| מערכת משאלים וגישור חכם</span>
                 </div>
                 <div className="text-[11px] sm:text-xs text-slate-300 font-medium flex items-center gap-1.5 mt-0.5">
@@ -237,24 +235,36 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Embed Code Button */}
-            <button
-              onClick={onOpenEmbed}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-              title="קוד להטמעה בכתבה באתר"
-            >
-              <Code2 className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">הטמעה באתר</span>
-            </button>
+            {/* Admin-only quick actions */}
+            {activeTab === 'admin' ? (
+              <>
+                <button
+                  onClick={() => onSelectTab('vote')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition"
+                  title="מעבר לשאלון החי כפי שהתושב רואה אותו"
+                >
+                  <Vote className="w-3.5 h-3.5" />
+                  <span>שאלון תושב 👁️</span>
+                </button>
 
-            {/* New Topic Button */}
-            <button
-              onClick={onOpenNewTopic}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>פתח זירה</span>
-            </button>
+                <button
+                  onClick={onOpenEmbed}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                  title="קוד להטמעה בכתבה באתר"
+                >
+                  <Code2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden sm:inline">הטמעה באתר</span>
+                </button>
+
+                <button
+                  onClick={onOpenNewTopic}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>פתח זירה</span>
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -321,68 +331,52 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none w-full md:w-auto">
-            <button
-              onClick={() => onSelectTab('vote')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'vote'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Vote className="w-4 h-4" />
-              <span>הצבעה והשתתפות</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>מפת הקונצנזוס</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('report')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'report'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-              title="הפקת טיוטת כתבה עיתונאית מלאה בלחיצת כפתור"
-            >
-              <Sparkles className="w-4 h-4 text-purple-200" />
-              <span>הכנת כתבה (AI) 📰</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('admin')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'admin'
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-900/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Settings2 className="w-4 h-4" />
-              <span>ניהול וסינון</span>
-            </button>
-
-            {showReturnToPitch && (
-              <a
-                href="/pitch.html"
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
-                title="חזרה לדף הנחיתה וההצעה העסקית"
+          {/* Navigation Tabs (Citizen View: strictly Vote & Results) */}
+          {activeTab !== 'admin' ? (
+            <nav className="flex items-center gap-1.5 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none w-full md:w-auto">
+              <button
+                onClick={() => onSelectTab('vote')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'vote'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
               >
-                <Briefcase className="w-4 h-4 text-amber-400" />
-                <span>חזור לדף הנחיתה ↩️</span>
-              </a>
-            )}
-          </nav>
+                <Vote className="w-4 h-4" />
+                <span>הצבעה והשתתפות</span>
+              </button>
+
+              <button
+                onClick={() => onSelectTab('dashboard')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'dashboard'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>מפת הקונצנזוס</span>
+              </button>
+
+              {showReturnToPitch && (
+                <a
+                  href="/pitch.html"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
+                  title="חזרה לדף הנחיתה וההצעה העסקית"
+                >
+                  <Briefcase className="w-4 h-4 text-amber-400" />
+                  <span>חזור לדף הנחיתה ↩️</span>
+                </a>
+              )}
+            </nav>
+          ) : (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 md:pb-0">
+              <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
+                <Settings2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>מערכת עורכים (Admin) – צפייה וניהול בלבד ללא הצבעות</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </header>

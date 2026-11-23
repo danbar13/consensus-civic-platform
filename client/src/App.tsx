@@ -249,7 +249,6 @@ export function App() {
                 analytics={analytics}
                 onRefresh={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onNavigateToVote={() => setActiveTab('vote')}
-                onNavigateToReport={() => setActiveTab('report')}
               />
             )}
 
@@ -265,11 +264,13 @@ export function App() {
               <AdminView
                 currentTopic={currentTopic}
                 topics={topics}
+                analytics={analytics}
+                darkMode={darkMode}
                 onTopicCreated={async newT => {
                   const all = await fetchTopics();
                   setTopics(all);
                   handleSelectTopic(newT.id);
-                  setActiveTab('vote');
+                  setActiveTab('admin');
                 }}
                 onTopicUpdated={async updatedT => {
                   const all = await fetchTopics();
@@ -290,7 +291,7 @@ export function App() {
                 onStatementsChanged={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onSelectTopic={handleSelectTopic}
                 onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
-                onNavigateToReport={() => setActiveTab('report')}
+                onNavigateToVote={() => setActiveTab('vote')}
               />
             )}
 
@@ -397,6 +398,17 @@ export function App() {
                 className="hover:text-amber-400 underline underline-offset-2 transition"
               >
                 תנאי שימוש
+              </button>
+            </div>
+
+            {/* Discreet Editorial / Admin Login Link */}
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={() => setActiveTab('admin')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-500 hover:text-amber-400 bg-slate-800/40 hover:bg-slate-800 transition text-xs font-semibold cursor-pointer border border-slate-800/80"
+                title="כניסה מוגנת בסיסמה למערכת העורכים ומנהלי המשאל"
+              >
+                <span>כניסת עורכים ומנהלים 🔐</span>
               </button>
             </div>
 
