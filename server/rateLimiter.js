@@ -46,6 +46,7 @@ class RateLimiter {
         const oldest = validRequests[0];
         const resetSeconds = Math.ceil((this.windowMs - (now - oldest)) / 1000);
         res.set('Retry-After', String(resetSeconds));
+        console.warn(`[${new Date().toISOString()}] [RATE_LIMIT_EXCEEDED] key=${key} route=${req.method} ${req.originalUrl || req.url} limit=${this.max}/${this.windowMs / 1000}s`);
         return res.status(429).json({
           error: this.message,
           retryAfterSeconds: resetSeconds
@@ -58,6 +59,16 @@ class RateLimiter {
     };
   }
 }
+
+// 0. General API rate limiter for all endpoints (120 requests per minute per IP)
+export const generalApiRateLimiter = new RateLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: 'קצב הבקשות לשרת גבוה מדי. אנא המתן מספר שניות ונסה שוב.',
+  keyGenerator: (req) => {
+    return 'api_general:' + ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'ip-default');
+  }
+}).middleware();
 
 // 1. Rate limiter for content submission and AI endpoints (10 requests per minute)
 export const statementRateLimiter = new RateLimiter({

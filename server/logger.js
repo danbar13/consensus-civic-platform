@@ -135,3 +135,31 @@ export function getAIStats() {
     };
   }
 }
+
+/**
+ * HTTP Request Logging Middleware for API traffic
+ */
+export function requestLogger(req, res, next) {
+  const start = Date.now();
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'ip-default';
+
+  res.on('finish', () => {
+    // Only log API routes to keep console clean
+    if (req.originalUrl && req.originalUrl.startsWith('/api')) {
+      const duration = Date.now() - start;
+      const status = res.statusCode;
+      const level = status >= 500 ? 'ERROR' : (status >= 400 ? 'WARN' : 'INFO');
+      console.log(`[${new Date().toISOString()}] [HTTP_${level}] ${req.method} ${req.originalUrl} ${status} (${duration}ms) [${ip}]`);
+    }
+  });
+
+  next();
+}
+
+/**
+ * Structured Security Event Logger
+ */
+export function logSecurityEvent(type, { ip, details, route }) {
+  const timestamp = new Date().toISOString();
+  console.warn(`[${timestamp}] [SECURITY_${type}] route=${route || 'N/A'} ip=${ip || 'N/A'} details=${details || ''}`);
+}

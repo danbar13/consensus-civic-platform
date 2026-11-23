@@ -33,6 +33,15 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+export function checkAuthResponse(res: Response): void {
+  if (res.status === 401) {
+    clearAdminToken();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('admin_auth_revoked'));
+    }
+  }
+}
+
 export async function verifyAdminPassword(password: string): Promise<{ success: boolean; token?: string; error?: string }> {
   const res = await fetch(`${API_BASE}/admin/verify`, {
     method: 'POST',
@@ -53,6 +62,7 @@ export async function fetchAIStats(): Promise<AIStats> {
   const res = await fetch(`${API_BASE}/admin/ai-stats`, {
     headers: getAuthHeaders()
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to fetch AI statistics');
@@ -158,6 +168,7 @@ export async function updateStatement(id: number, data: {
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to update statement');
@@ -170,6 +181,7 @@ export async function deleteStatement(id: number): Promise<{ success: boolean }>
     method: 'DELETE',
     headers: getAuthHeaders()
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to delete statement');
@@ -192,6 +204,7 @@ export async function createTopic(data: {
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to create topic');
@@ -212,6 +225,7 @@ export async function updateTopic(id: string, data: {
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to update topic');
@@ -224,6 +238,7 @@ export async function deleteTopic(id: string): Promise<{ success: boolean; delet
     method: 'DELETE',
     headers: getAuthHeaders()
   });
+  checkAuthResponse(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to delete topic');

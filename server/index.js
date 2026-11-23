@@ -27,9 +27,9 @@ import {
   cloudGetVotesForTopic,
   cloudGetUserVotes
 } from './supabaseDb.js';
-import { statementRateLimiter, voteRateLimiter, adminLoginRateLimiter } from './rateLimiter.js';
+import { statementRateLimiter, voteRateLimiter, adminLoginRateLimiter, generalApiRateLimiter } from './rateLimiter.js';
 import { generateAdminToken, verifyAdminToken } from './auth.js';
-import { getAIStats } from './logger.js';
+import { getAIStats, requestLogger, logSecurityEvent } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,8 +42,21 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'eilat-admin-2025';
 
+// Security Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 app.use(cors());
 app.use(express.json());
+
+// HTTP Request Logger for API calls
+app.use(requestLogger);
+
+// Global API Rate Limiter
+app.use('/api', generalApiRateLimiter);
 
 // Ensure Cloud DB is initialized before handling API requests
 app.use('/api', async (req, res, next) => {
@@ -63,6 +76,13 @@ function requireAdminAuth(req, res, next) {
     return next();
   }
 
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'ip-default';
+  logSecurityEvent('UNAUTHORIZED_ACCESS', {
+    ip,
+    route: `${req.method} ${req.originalUrl}`,
+    details: 'Missing or invalid admin bearer token'
+  });
+
   return res.status(401).json({ error: 'נדרשת סיסמת מנהל מורשה לביצוע פעולה זו.', unauthorized: true });
 }
 
@@ -72,6 +92,7 @@ function requireAdminAuth(req, res, next) {
 
 // Verify Admin Password with brute-force rate limiter and cryptographically signed token
 app.post('/api/admin/verify', adminLoginRateLimiter, (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'ip-default';
   try {
     const { password } = req.body || {};
     if (!password) {
@@ -80,11 +101,14 @@ app.post('/api/admin/verify', adminLoginRateLimiter, (req, res) => {
 
     if (password === ADMIN_PASSWORD) {
       const token = generateAdminToken();
+      logSecurityEvent('ADMIN_LOGIN_SUCCESS', { ip, route: '/api/admin/verify', details: 'Admin authenticated successfully' });
       return res.json({ success: true, token });
     }
 
+    logSecurityEvent('ADMIN_LOGIN_FAILED', { ip, route: '/api/admin/verify', details: 'Incorrect password attempt' });
     return res.status(401).json({ success: false, error: 'סיסמת מנהל שגויה. אנא נסה שוב.' });
   } catch (err) {
+    logSecurityEvent('ADMIN_LOGIN_ERROR', { ip, route: '/api/admin/verify', details: err.message });
     res.status(500).json({ error: 'Admin authentication failed' });
   }
 });

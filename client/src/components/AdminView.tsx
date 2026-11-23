@@ -142,6 +142,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   }, [isAdminAuthenticated]);
 
+  useEffect(() => {
+    const handleAuthRevoked = () => {
+      setIsAdminAuthenticated(false);
+      setAuthError('פג תוקף חיבור המנהל. אנא הזן סיסמה מחדש.');
+    };
+    window.addEventListener('admin_auth_revoked', handleAuthRevoked);
+    return () => window.removeEventListener('admin_auth_revoked', handleAuthRevoked);
+  }, []);
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
