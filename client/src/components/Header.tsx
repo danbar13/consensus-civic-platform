@@ -158,90 +158,186 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-xl sticky top-0 z-40 border-b border-slate-800 dark:border-slate-800/80 transition-colors duration-200">
-      {/* Top Banner & YomYom Branding */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-2.5 border-b border-slate-800 flex-wrap gap-2.5">
-          
-          {/* Logo & Platform Name */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* YomYom Eilat Official Logo */}
-            <a 
-              href="https://www.yomyom.net/" 
-              target="_blank" 
-              rel="noreferrer"
-              className="flex items-center bg-slate-950/70 hover:bg-slate-950 px-2 py-1 sm:px-2.5 rounded-xl border border-slate-800 transition group shrink-0"
-              title="בחסות עיתון 'יום יום באילת / ערב ערב באילת' – לחץ לפתיחת האתר"
-            >
-              <img 
-                src="/images/yomyom-logo-white.png" 
-                alt="יום יום באילת | ערב ערב באילת" 
-                className="h-7 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
-                onError={(e) => {
-                  // Fallback to remote if local image fails
-                  const img = e.target as HTMLImageElement;
-                  if (img.src.includes('/images/')) {
-                    img.src = 'https://www.yomyom.net/images/yomyom-logo-white.png';
-                  }
-                }}
-              />
-            </a>
+        {activeTab !== 'admin' ? (
+          /* ========================================================= */
+          /* CITIZEN VIEW: Centered, larger logo & title, no extra row */
+          /* ========================================================= */
+          <div className="py-3 sm:py-4 flex flex-col items-center justify-center relative gap-3">
+            {/* Quick Actions (Dark mode toggle) aligned to the left */}
+            <div className="absolute left-0 top-3 sm:top-4">
+              <button
+                onClick={onToggleDarkMode}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer shadow-xs"
+                title={darkMode ? 'מעבר לתצוגה בהירה' : 'מעבר לתצוגה כהה'}
+              >
+                {darkMode ? (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="hidden sm:inline">בהיר</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-sky-300" />
+                    <span className="hidden sm:inline">כהה</span>
+                  </>
+                )}
+              </button>
+            </div>
 
-            <div className="h-6 w-px bg-slate-800 hidden sm:block shrink-0" />
+            {/* Centered & Enlarged Branding: YomYom Logo & Compass App Name */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 text-center sm:text-right pt-0.5">
+              {/* YomYom Official Logo */}
+              <a 
+                href="https://www.yomyom.net/" 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center bg-slate-950/70 hover:bg-slate-950 px-3 py-1.5 rounded-2xl border border-slate-800 transition group shrink-0"
+                title="בחסות עיתון 'יום יום באילת / ערב ערב באילת' – לחץ לפתיחת האתר"
+              >
+                <img 
+                  src="/images/yomyom-logo-white.png" 
+                  alt="יום יום באילת | ערב ערב באילת" 
+                  className="h-9 sm:h-11 w-auto object-contain transition-transform group-hover:scale-105"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    if (img.src.includes('/images/')) {
+                      img.src = 'https://www.yomyom.net/images/yomyom-logo-white.png';
+                    }
+                  }}
+                />
+              </a>
 
-            {/* Compass App Logo & Title */}
-            <div className="flex items-center gap-2">
-              <img 
-                src="/favicon.svg" 
-                alt="המצפן האילתי" 
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm border border-amber-400/40 shrink-0 object-contain"
-              />
-              <div>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="text-base sm:text-lg font-black tracking-tight text-white leading-none">המצפן האילתי</span>
-                  {activeTab === 'admin' ? (
-                    <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>שולחן עורכים</span>
+              <div className="h-8 w-px bg-slate-800 hidden sm:block shrink-0" />
+
+              {/* Compass App Logo & Enlarged Title */}
+              <div className="flex items-center gap-2.5">
+                <img 
+                  src="/favicon.svg" 
+                  alt="המצפן האילתי" 
+                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl shadow-md border border-amber-400/50 shrink-0 object-contain p-0.5 bg-slate-900"
+                />
+                <div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <span className="text-xl sm:text-2xl font-black tracking-tight text-white leading-none">
+                      המצפן האילתי
                     </span>
-                  ) : (
-                    <span className="text-[10px] sm:text-xs bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                    <span className="text-xs bg-amber-400/20 text-amber-300 font-bold px-2 py-0.5 rounded-md border border-amber-400/30">
                       קונצנזוס ציבורי
                     </span>
-                  )}
-                  <span className="text-xs text-slate-400 hidden lg:inline">| ערב ערב באילת</span>
-                </div>
-                <div className="text-[11px] sm:text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                  <span>המצפן העירוני לעיתונות וקונצנזוס</span>
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-slate-400 font-medium flex items-center justify-center sm:justify-start gap-1.5 mt-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                    <span>המצפן העירוני לעיתונות וקונצנזוס | ערב ערב באילת</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Quick Actions & Dark Mode Toggle */}
-          <div className="flex items-center gap-2">
-            {/* Dark Mode Toggle Button */}
-            <button
-              onClick={onToggleDarkMode}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-              title={darkMode ? 'מעבר לתצוגה בהירה' : 'מעבר לתצוגה כהה'}
-            >
-              {darkMode ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">בהיר</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-sky-300" />
-                  <span className="hidden sm:inline">כהה</span>
-                </>
+            {/* Navigation Switcher Tabs (Centered & Sleek) */}
+            <nav className="flex items-center justify-center gap-2 pt-0.5 flex-wrap">
+              <button
+                onClick={() => onSelectTab('vote')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'vote'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50 ring-2 ring-blue-400/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/80 border border-slate-800'
+                }`}
+              >
+                <Vote className="w-4 h-4" />
+                <span>הצבעה והשתתפות</span>
+              </button>
+
+              <button
+                onClick={() => onSelectTab('dashboard')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50 ring-2 ring-emerald-400/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/80 border border-slate-800'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>מפת הקונצנזוס</span>
+              </button>
+
+              {showReturnToPitch && (
+                <a
+                  href="/pitch.html"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
+                  title="חזרה לדף הנחיתה וההצעה העסקית"
+                >
+                  <Briefcase className="w-4 h-4 text-amber-400" />
+                  <span>חזור לדף הנחיתה ↩️</span>
+                </a>
               )}
-            </button>
+            </nav>
+          </div>
+        ) : (
+          /* ========================================================= */
+          /* ADMIN / EDITORS VIEW: Full management bar & topic chooser */
+          /* ========================================================= */
+          <>
+            <div className="flex items-center justify-between py-2.5 border-b border-slate-800 flex-wrap gap-2.5">
+              {/* Logo & Platform Name */}
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <a 
+                  href="https://www.yomyom.net/" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="flex items-center bg-slate-950/70 hover:bg-slate-950 px-2 py-1 sm:px-2.5 rounded-xl border border-slate-800 transition group shrink-0"
+                  title="בחסות עיתון 'יום יום באילת / ערב ערב באילת'"
+                >
+                  <img 
+                    src="/images/yomyom-logo-white.png" 
+                    alt="יום יום באילת" 
+                    className="h-7 sm:h-9 w-auto object-contain"
+                  />
+                </a>
 
-            {/* Admin-only quick actions */}
-            {activeTab === 'admin' ? (
-              <>
+                <div className="h-6 w-px bg-slate-800 hidden sm:block shrink-0" />
+
+                <div className="flex items-center gap-2">
+                  <img 
+                    src="/favicon.svg" 
+                    alt="המצפן האילתי" 
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm border border-amber-400/40 shrink-0 object-contain"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="text-base sm:text-lg font-black tracking-tight text-white leading-none">המצפן האילתי</span>
+                      <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>שולחן עורכים</span>
+                      </span>
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                      <span>מערכת ניהול ובקרת תוכן</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Actions & Dark Mode */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onToggleDarkMode}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                  title={darkMode ? 'מעבר לתצוגה בהירה' : 'מעבר לתצוגה כהה'}
+                >
+                  {darkMode ? (
+                    <>
+                      <Sun className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="hidden sm:inline">בהיר</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="w-3.5 h-3.5 text-sky-300" />
+                      <span className="hidden sm:inline">כהה</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   onClick={onOpenEmbed}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
@@ -269,21 +365,15 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="hidden sm:inline">התנתק</span>
                   </button>
                 )}
-              </>
-            ) : null}
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {/* Topic Selector & Nav Tabs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between pt-2 pb-2 gap-2.5">
-          {/* Topic Display (Static for citizen/voter, dropdown selector for admin) */}
-          <div className="relative w-full md:w-auto flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-bold hidden sm:inline whitespace-nowrap">
-              {activeTab === 'admin' ? 'זירה בניהול:' : 'נושא המשאל:'}
-            </span>
-
-            {activeTab === 'admin' ? (
-              <>
+            {/* Admin Topic Switcher Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between pt-2 pb-2 gap-2.5">
+              <div className="relative w-full md:w-auto flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-bold hidden sm:inline whitespace-nowrap">
+                  זירה בניהול:
+                </span>
                 <button
                   onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
                   className="flex-1 md:flex-initial flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-right text-xs sm:text-sm text-slate-100 transition shadow-inner cursor-pointer"
@@ -342,72 +432,26 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </>
                 )}
-              </>
-            ) : (
-              <div className="flex-1 md:flex-initial flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 text-right text-xs sm:text-sm text-slate-100 shadow-inner select-none">
-                {currentTopic && getCategoryIcon(currentTopic.category)}
-                <span className="font-bold truncate max-w-[260px] sm:max-w-xl text-slate-100">
-                  {currentTopic?.title || 'המשאל העירוני'}
-                </span>
               </div>
-            )}
-          </div>
 
-          {/* Navigation / Mode Switcher */}
-          {activeTab !== 'admin' ? (
-            <nav className="flex items-center gap-1.5 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none w-full md:w-auto">
-              <button
-                onClick={() => onSelectTab('vote')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'vote'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Vote className="w-4 h-4" />
-                <span>הצבעה והשתתפות</span>
-              </button>
-
-              <button
-                onClick={() => onSelectTab('dashboard')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'dashboard'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>מפת הקונצנזוס</span>
-              </button>
-
-              {showReturnToPitch && (
-                <a
-                  href="/pitch.html"
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border text-amber-300 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/25 hover:text-amber-200"
-                  title="חזרה לדף הנחיתה וההצעה העסקית"
+              {/* Switch to citizen preview */}
+              <div className="flex items-center gap-2 self-end md:self-auto">
+                <button
+                  onClick={() => {
+                    if (window.confirm('מעבר לתצוגת שאלון תושב (אזרחי).\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית הדף.\nהאם להמשיך?')) {
+                      onSelectTab('vote');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 transition cursor-pointer"
+                  title="צפייה בשאלון כפי שהוא מוצג לתושב"
                 >
-                  <Briefcase className="w-4 h-4 text-amber-400" />
-                  <span>חזור לדף הנחיתה ↩️</span>
-                </a>
-              )}
-            </nav>
-          ) : (
-            <div className="flex items-center gap-2 self-end md:self-auto">
-              <button
-                onClick={() => {
-                  if (window.confirm('מעבר לתצוגת שאלון תושב (אזרחי).\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית הדף.\nהאם להמשיך?')) {
-                    onSelectTab('vote');
-                  }
-                }}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 transition cursor-pointer"
-                title="צפייה בשאלון כפי שהוא מוצג לתושב"
-              >
-                <Eye className="w-4 h-4" />
-                <span>שאלון תושב 👁️</span>
-              </button>
+                  <Eye className="w-4 h-4" />
+                  <span>שאלון תושב 👁️</span>
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </header>
   );
