@@ -420,20 +420,47 @@ export async function cloudGetStatements(topicId, status) {
 export async function cloudCreateStatement(stData) {
   if (isSupabaseActive && supabase) {
     try {
+      // Find current max id in Supabase to guarantee uniqueness and avoid sequence conflicts
+      let nextId = stData.id;
+      if (!nextId) {
+        const { data: maxRow } = await supabase
+          .from('statements')
+          .select('id')
+          .order('id', { ascending: false })
+          .limit(1)
+          .single();
+        nextId = (maxRow?.id || 0) + 1;
+      }
+
+      const insertPayload = {
+        id: nextId,
+        topic_id: stData.topic_id,
+        text: stData.text,
+        author_group: stData.author_group || 'general',
+        is_seed: Boolean(stData.is_seed),
+        status: stData.status || 'approved',
+        created_at: stData.created_at || new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('statements')
-        .insert({
-          topic_id: stData.topic_id,
-          text: stData.text,
-          author_group: stData.author_group || 'general',
-          is_seed: Boolean(stData.is_seed),
-          status: stData.status || 'approved',
-          created_at: stData.created_at
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
-      if (!error && data) return data;
+      if (!error && data) {
+        // Also cache to local SQLite
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO statements (id, topic_id, text, author_group, is_seed, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(data.id, data.topic_id, data.text, data.author_group, data.is_seed ? 1 : 0, data.status, data.created_at);
+        } catch {}
+        return data;
+      }
+      if (error) {
+        console.warn('Supabase createStatement error:', error.message || error);
+      }
     } catch (err) {
       console.warn('Supabase createStatement failed, falling back to SQLite:', err.message);
     }

@@ -209,7 +209,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   useEffect(() => {
     loadStatements();
-  }, [currentTopic.id, statusFilter]);
+  }, [currentTopic.id, statusFilter, adminSubTab]);
 
   // Load suggestions whenever modal opens or category changes
   const loadSuggestions = async (category: string, title?: string) => {
@@ -1124,6 +1124,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
                 {allStatements.filter(s => s.status !== 'approved').length}
               </span>
+            </button>
+
+            <button
+              onClick={() => loadStatements()}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+              title="רענן מאגר היגדים"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
