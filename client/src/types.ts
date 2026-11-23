@@ -69,6 +69,8 @@ export interface TopicAnalytics {
 export interface ModerationResult {
   passed: boolean;
   isRant?: boolean;
+  isDuplicate?: boolean;
+  similarStatement?: string | null;
   reason?: string;
   suggestion?: string;
 }

@@ -83,7 +83,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
 }) => {
   const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
   const [statements, setStatements] = useState<Statement[]>([]);
+  const [allStatements, setAllStatements] = useState<Statement[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+  const pendingCount = allStatements.filter(s => s.status === 'pending').length;
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [copiedEmbed, setCopiedEmbed] = useState(false);
@@ -194,8 +197,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const loadStatements = async () => {
     try {
-      const data = await fetchStatements(currentTopic.id, statusFilter);
-      setStatements(data);
+      const all = await fetchStatements(currentTopic.id);
+      setAllStatements(all);
+      if (statusFilter === 'all') {
+        setStatements(all);
+      } else {
+        setStatements(all.filter(s => s.status === statusFilter));
+      }
     } catch (err) {
       console.error('Error fetching statements:', err);
     }
@@ -525,41 +533,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       
-      {/* Top Admin Status & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>שולחן עורכים ומנהלים מורשה</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-amber-500 dark:text-amber-400 font-semibold truncate max-w-xs">{currentTopic.title}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {onNavigateToVote && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold hidden sm:flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800/60">
-                <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500" />
-                <span>מעבר יוציא מאדמין</span>
-              </span>
-              <button
-                onClick={handleRequestNavigateToVote}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800/60 transition cursor-pointer"
-                title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>שאלון תושב 👁️</span>
-              </button>
-            </div>
-          )}
-          <button
-            onClick={handleAdminLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-800/60 transition cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>התנתק</span>
-          </button>
-        </div>
-      </div>
-
       {/* Editorial Navigation Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
         <button
@@ -572,6 +545,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
         >
           <ShieldCheck className="w-4 h-4" />
           <span>סינון היגדים</span>
+          {pendingCount > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-xs">
+              {pendingCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -1131,22 +1109,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
           {/* Status Filter */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold self-start sm:self-auto">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map(status => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg transition ${
-                  statusFilter === status
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {status === 'all' && 'הכל'}
-                {status === 'pending' && 'ממתינים לאישור'}
-                {status === 'approved' && 'מאושרים'}
-                {status === 'rejected' && 'נדחו'}
-              </button>
-            ))}
+            {(['all', 'pending', 'approved', 'rejected'] as const).map(status => {
+              const count = status === 'all' 
+                ? allStatements.length 
+                : allStatements.filter(s => s.status === status).length;
+              return (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                    statusFilter === status
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>
+                    {status === 'all' && 'הכל'}
+                    {status === 'pending' && 'ממתינים לאישור'}
+                    {status === 'approved' && 'מאושרים'}
+                    {status === 'rejected' && 'נדחו'}
+                  </span>
+                  <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
+                    status === 'pending' && count > 0
+                      ? 'bg-rose-500 text-white'
+                      : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -132,6 +132,8 @@ export async function checkModeration(data: {
   text: string;
   topicTitle?: string;
   topicCategory?: string;
+  topicId?: string;
+  existingStatements?: string[];
 }): Promise<ModerationResult> {
   const res = await fetch(`${API_BASE}/ai/moderate`, {
     method: 'POST',

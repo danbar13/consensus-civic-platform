@@ -16,7 +16,10 @@ import {
   Moon,
   Sun,
   ExternalLink,
-  Clock
+  Clock,
+  Eye,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -27,6 +30,7 @@ interface HeaderProps {
   onSelectTopic: (topicId: string) => void;
   onOpenNewTopic: () => void;
   onOpenEmbed: () => void;
+  onAdminLogout?: () => void;
   isEmbed?: boolean;
   darkMode: boolean;
   onToggleDarkMode: () => void;
@@ -41,6 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTopic,
   onOpenNewTopic,
   onOpenEmbed,
+  onAdminLogout,
   isEmbed = false,
   darkMode,
   onToggleDarkMode,
@@ -194,21 +199,20 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <span className="text-base sm:text-lg font-black tracking-tight text-white leading-none">המצפן האילתי</span>
                   {activeTab === 'admin' ? (
-                    <span className="text-[10px] sm:text-xs bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
-                      <Settings2 className="w-3 h-3" />
-                      <span>שולחן עורכים וניהול</span>
+                    <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>שולחן עורכים</span>
                     </span>
                   ) : (
                     <span className="text-[10px] sm:text-xs bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
                       קונצנזוס ציבורי
                     </span>
                   )}
-                  <span className="text-xs text-slate-400 hidden lg:inline">| מערכת משאלים וגישור חכם</span>
+                  <span className="text-xs text-slate-400 hidden lg:inline">| ערב ערב באילת</span>
                 </div>
-                <div className="text-[11px] sm:text-xs text-slate-300 font-medium flex items-center gap-1.5 mt-0.5">
+                <div className="text-[11px] sm:text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                  <span className="text-slate-400 hidden xs:inline">זירה פעילה:</span>
-                  <span className="text-amber-300 font-bold truncate max-w-[140px] sm:max-w-xs">{currentTopic?.organization || 'המצפן העירוני'}</span>
+                  <span>המצפן העירוני לעיתונות וקונצנזוס</span>
                 </div>
               </div>
             </div>
@@ -219,18 +223,18 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Dark Mode Toggle Button */}
             <button
               onClick={onToggleDarkMode}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
               title={darkMode ? 'מעבר לתצוגה בהירה' : 'מעבר לתצוגה כהה'}
             >
               {darkMode ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">תצוגה בהירה</span>
+                  <span className="hidden sm:inline">בהיר</span>
                 </>
               ) : (
                 <>
                   <Moon className="w-3.5 h-3.5 text-sky-300" />
-                  <span className="hidden sm:inline">תצוגה כהה</span>
+                  <span className="hidden sm:inline">כהה</span>
                 </>
               )}
             </button>
@@ -239,21 +243,8 @@ export const Header: React.FC<HeaderProps> = ({
             {activeTab === 'admin' ? (
               <>
                 <button
-                  onClick={() => {
-                    if (window.confirm('⚠️ שים לב: לחיצה על מעבר לשאלון תוציא אותך ממסך הניהול (Admin) ותעביר אותך לתצוגת האזרח.\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית העמוד או בכתובת tab=admin.\n\nהאם לעבור לשאלון האזרחי?')) {
-                      onSelectTab('vote');
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition"
-                  title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
-                >
-                  <Vote className="w-3.5 h-3.5" />
-                  <span>שאלון תושב 👁️</span>
-                </button>
-
-                <button
                   onClick={onOpenEmbed}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
                   title="קוד להטמעה בכתבה באתר"
                 >
                   <Code2 className="w-3.5 h-3.5 text-slate-400" />
@@ -262,80 +253,107 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   onClick={onOpenNewTopic}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition cursor-pointer"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>פתח זירה</span>
                 </button>
+
+                {onAdminLogout && (
+                  <button
+                    onClick={onAdminLogout}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition cursor-pointer"
+                    title="התנתק משולחן העורכים"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="hidden sm:inline">התנתק</span>
+                  </button>
+                )}
               </>
             ) : null}
           </div>
         </div>
 
         {/* Topic Selector & Nav Tabs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between pt-2.5 pb-2 gap-2.5">
-          {/* Topic Dropdown Switcher */}
-          <div className="relative w-full md:w-auto">
-            <button
-              onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
-              className="w-full md:w-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-right text-xs sm:text-sm text-slate-100 transition shadow-inner cursor-pointer"
-            >
-              <div className="flex items-center gap-2 truncate">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pt-2 pb-2 gap-2.5">
+          {/* Topic Display (Static for citizen/voter, dropdown selector for admin) */}
+          <div className="relative w-full md:w-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-bold hidden sm:inline whitespace-nowrap">
+              {activeTab === 'admin' ? 'זירה בניהול:' : 'נושא המשאל:'}
+            </span>
+
+            {activeTab === 'admin' ? (
+              <>
+                <button
+                  onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
+                  className="flex-1 md:flex-initial flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-right text-xs sm:text-sm text-slate-100 transition shadow-inner cursor-pointer"
+                  title="בחר זירה לעריכה ולניהול"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {currentTopic && getCategoryIcon(currentTopic.category)}
+                    <span className="font-bold truncate max-w-[240px] sm:max-w-md">
+                      {currentTopic?.title || 'בחר זירת דיון'}
+                    </span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {topicDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-30" 
+                      onClick={() => setTopicDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 left-0 md:left-auto md:right-0 mt-2 w-full md:w-96 max-w-[calc(100vw-2rem)] mx-auto md:mx-0 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="p-2.5 bg-slate-950/80 text-xs font-semibold text-slate-400 flex items-center justify-between">
+                        <span>זירות דיון ומשאלים זמינים:</span>
+                        <span className="text-[11px] text-amber-400 font-bold">{topics.length} זירות</span>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {topics.map(t => {
+                          const isSelected = currentTopic?.id === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => {
+                                onSelectTopic(t.id);
+                                setTopicDropdownOpen(false);
+                              }}
+                              className={`w-full text-right p-3 hover:bg-slate-800/80 transition flex items-start gap-3 cursor-pointer ${
+                                isSelected ? 'bg-slate-800/90 border-r-4 border-amber-400' : ''
+                              }`}
+                            >
+                              <div className="mt-0.5 p-1.5 rounded-lg bg-slate-800 shrink-0">
+                                {getCategoryIcon(t.category)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium text-amber-400/90 mb-0.5">{t.organization}</div>
+                                <div className="text-sm font-bold text-white line-clamp-2 leading-snug">{t.title}</div>
+                                <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
+                                  <span>{t.stats?.participants || 0} משתתפים</span>
+                                  <span>•</span>
+                                  <span>{t.stats?.statementsCount || 0} היגדים</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 md:flex-initial flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 text-right text-xs sm:text-sm text-slate-100 shadow-inner select-none">
                 {currentTopic && getCategoryIcon(currentTopic.category)}
-                <span className="font-bold truncate max-w-[240px] sm:max-w-md">
-                  {currentTopic?.title || 'בחר זירת דיון'}
+                <span className="font-bold truncate max-w-[260px] sm:max-w-xl text-slate-100">
+                  {currentTopic?.title || 'המשאל העירוני'}
                 </span>
               </div>
-              <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {topicDropdownOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-30" 
-                  onClick={() => setTopicDropdownOpen(false)}
-                />
-                <div className="absolute right-0 left-0 md:left-auto md:right-0 mt-2 w-full md:w-96 max-w-[calc(100vw-2rem)] mx-auto md:mx-0 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="p-2.5 bg-slate-950/80 text-xs font-semibold text-slate-400 flex items-center justify-between">
-                    <span>זירות דיון ומשאלים זמינים:</span>
-                    <span className="text-[11px] text-amber-400 font-bold">{topics.length} זירות</span>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {topics.map(t => {
-                      const isSelected = currentTopic?.id === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            onSelectTopic(t.id);
-                            setTopicDropdownOpen(false);
-                          }}
-                          className={`w-full text-right p-3 hover:bg-slate-800/80 transition flex items-start gap-3 cursor-pointer ${
-                            isSelected ? 'bg-slate-800/90 border-r-4 border-amber-400' : ''
-                          }`}
-                        >
-                          <div className="mt-0.5 p-1.5 rounded-lg bg-slate-800 shrink-0">
-                            {getCategoryIcon(t.category)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-amber-400/90 mb-0.5">{t.organization}</div>
-                            <div className="text-sm font-bold text-white line-clamp-2 leading-snug">{t.title}</div>
-                            <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
-                              <span>{t.stats?.participants || 0} משתתפים</span>
-                              <span>•</span>
-                              <span>{t.stats?.statementsCount || 0} היגדים</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
             )}
           </div>
 
-          {/* Navigation Tabs (Citizen View: strictly Vote & Results) */}
+          {/* Navigation / Mode Switcher */}
           {activeTab !== 'admin' ? (
             <nav className="flex items-center gap-1.5 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none w-full md:w-auto">
               <button
@@ -374,11 +392,19 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </nav>
           ) : (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 md:pb-0">
-              <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
-                <Settings2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>מערכת עורכים (Admin) – צפייה וניהול בלבד ללא הצבעות</span>
-              </span>
+            <div className="flex items-center gap-2 self-end md:self-auto">
+              <button
+                onClick={() => {
+                  if (window.confirm('מעבר לתצוגת שאלון תושב (אזרחי).\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית הדף.\nהאם להמשיך?')) {
+                    onSelectTab('vote');
+                  }
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 transition cursor-pointer"
+                title="צפייה בשאלון כפי שהוא מוצג לתושב"
+              >
+                <Eye className="w-4 h-4" />
+                <span>שאלון תושב 👁️</span>
+              </button>
             </div>
           )}
         </div>

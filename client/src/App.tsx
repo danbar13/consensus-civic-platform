@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
-import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes } from './api';
+import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes, clearAdminToken } from './api';
 import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
 import { Header } from './components/Header';
 import { VoteView } from './components/VoteView';
@@ -214,6 +214,10 @@ export function App() {
         onSelectTopic={handleSelectTopic}
         onOpenNewTopic={() => setActiveTab('admin')}
         onOpenEmbed={() => setEmbedModalOpen(true)}
+        onAdminLogout={() => {
+          clearAdminToken();
+          window.dispatchEvent(new Event('admin_auth_revoked'));
+        }}
         isEmbed={isEmbed}
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
@@ -367,15 +371,6 @@ export function App() {
             <p className="text-slate-500 max-w-xl mx-auto leading-relaxed">
               פותח בהשראת עקרונות הדמוקרטיה החישובית של Polis ו-Talk to the City, בשילוב מנגנון גישור לשון הרע ומחולל דוחות מבוסס AI.
             </p>
-
-            <div className="pt-1">
-              <button
-                onClick={() => setActiveTab('pitch')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition shadow-sm"
-              >
-                <span>הצעה אסטרטגית למערכת "ערב ערב באילת" 💼</span>
-              </button>
-            </div>
 
             {/* Legal, Privacy & Accessibility Links */}
             <div className="flex items-center justify-center gap-4 text-xs font-medium text-slate-400 pt-3 border-t border-slate-800/80 flex-wrap">

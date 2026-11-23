@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Clock,
-  Lock
+  Lock,
+  BarChart3
 } from 'lucide-react';
 
 interface VoteViewProps {
@@ -51,22 +52,48 @@ export const VoteView: React.FC<VoteViewProps> = ({
   // New statement submission state
   const [newText, setNewText] = useState('');
   const [isEvaluatingAI, setIsEvaluatingAI] = useState(false);
+  const [viewingCommunityTier, setViewingCommunityTier] = useState(false);
   const [moderationFeedback, setModerationFeedback] = useState<{
     passed: boolean;
     isRant?: boolean;
+    isDuplicate?: boolean;
+    similarStatement?: string | null;
     reason?: string;
     suggestion?: string;
   } | null>(null);
   const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
 
-  // Determine statements list and remaining unvoted statements
+  // Two-tier division: Tier 1 (Iron Core 8 statements) vs Tier 2 (Community Dynamic statements)
   const approvedStatements = statements.filter(s => s.status === 'approved');
-  const unvotedStatements = approvedStatements.filter(s => userVotes[s.id] === undefined);
-  const currentStatement = unvotedStatements[0] || null;
+  const seedStatements = approvedStatements.filter(s => s.is_seed);
+  const communityStatements = approvedStatements.filter(s => !s.is_seed);
 
-  const totalCount = approvedStatements.length;
-  const votedCount = approvedStatements.filter(s => userVotes[s.id] !== undefined).length;
-  const progressPercent = totalCount > 0 ? Math.round((votedCount / totalCount) * 100) : 0;
+  const unvotedSeed = seedStatements.filter(s => userVotes[s.id] === undefined);
+  const unvotedCommunity = communityStatements.filter(s => userVotes[s.id] === undefined);
+
+  const isSeedComplete = seedStatements.length > 0 && unvotedSeed.length === 0;
+
+  // Determine current statement to display
+  let currentStatement: Statement | null = null;
+  let isCurrentTierSeed = true;
+
+  if (!isSeedComplete) {
+    currentStatement = unvotedSeed[0] || null;
+    isCurrentTierSeed = true;
+  } else if (viewingCommunityTier && unvotedCommunity.length > 0) {
+    currentStatement = unvotedCommunity[0] || null;
+    isCurrentTierSeed = false;
+  } else {
+    currentStatement = null;
+  }
+
+  const seedTotal = seedStatements.length;
+  const seedVotedCount = seedStatements.filter(s => userVotes[s.id] !== undefined).length;
+  const seedProgressPercent = seedTotal > 0 ? Math.round((seedVotedCount / seedTotal) * 100) : 0;
+
+  const communityTotal = communityStatements.length;
+  const communityVotedCount = communityStatements.filter(s => userVotes[s.id] !== undefined).length;
+  const totalVotedCount = seedVotedCount + communityVotedCount;
 
   const isClosed = Boolean(topic.closes_at && new Date(topic.closes_at).getTime() < Date.now());
 
@@ -135,7 +162,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentStatement, currentGroup, isClosed]);
 
-  // Handle submitting a new statement with AI guardrail
+  // Handle submitting a new statement with single-call AI guardrail & deduplication
   const handleAddStatementSubmit = async (textToSubmit?: string) => {
     const targetText = (textToSubmit || newText).trim();
     if (!targetText) return;
@@ -145,39 +172,37 @@ export const VoteView: React.FC<VoteViewProps> = ({
     setSubmitSuccessMsg(null);
 
     try {
-      // Step 1: AI moderation check
-      const modResult = await checkModeration({
-        text: targetText,
-        topicTitle: topic.title,
-        topicCategory: topic.category
-      });
-
-      // If failed or needs reframing and we didn't explicitly override
-      if (!modResult.passed && !textToSubmit) {
-        setModerationFeedback(modResult);
-        setIsEvaluatingAI(false);
-        return;
-      }
-
-      // Step 2: Submit to server
+      // Single fast round-trip: Server performs rate limit, AI moderation and semantic deduplication
       const res = await submitStatement(topic.id, {
         text: targetText,
         author_group: currentGroup,
         session_id: sessionId
       });
 
-      onStatementAdded(res.statement);
-      setNewText('');
-      setModerationFeedback(null);
-      setSubmitSuccessMsg(
-        res.statement.status === 'approved'
-          ? 'ההצעה שלך אושרה והתווספה למשאל הציבורי בהצלחה!'
-          : 'ההצעה נקלטה והועברה לאישור המערכת.'
-      );
+      // If duplicate or blocked by moderation
+      if (res.moderation?.isDuplicate || !res.moderation?.passed) {
+        setModerationFeedback(res.moderation);
+        setIsEvaluatingAI(false);
+        return;
+      }
+
+      if (res.statement) {
+        onStatementAdded(res.statement);
+        setNewText('');
+        setModerationFeedback(null);
+        setSubmitSuccessMsg(
+          res.statement.status === 'approved'
+            ? 'רעיונך נבדק ואושר ע"י ה-AI והתווסף לשלב רעיונות התושבים (שלב 2)! 🎉'
+            : 'הצעתך נקלטה בהצלחה והועברה לשולחן העורכים.'
+        );
+      }
 
       setTimeout(() => setSubmitSuccessMsg(null), 4500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting statement:', err);
+      if (err?.response?.data?.moderation) {
+        setModerationFeedback(err.response.data.moderation);
+      }
     } finally {
       setIsEvaluatingAI(false);
     }
@@ -318,16 +343,43 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </div>
       </div>
 
-      {/* 2. PROGRESS BAR */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-3.5 shadow-xs border border-slate-200/80 dark:border-slate-800">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-          <span>התקדמות ההצבעה שלך:</span>
-          <span>{votedCount} מתוך {totalCount} היגדים ({progressPercent}%)</span>
+      {/* 2. PROGRESS BAR & TIER INDICATOR */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xs border border-slate-200/80 dark:border-slate-800 space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1.5">
+          <div className="flex items-center gap-2 font-bold">
+            {!isSeedComplete ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 flex items-center gap-1 border border-blue-200 dark:border-blue-800">
+                <span>שלב 1 מתוך 2:</span>
+                <span>8 היגדי הברזל (שאלות חובה לקליטת עמדתך)</span>
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 flex items-center gap-1 border border-purple-200 dark:border-purple-800">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span>שלב 2: קולות התושבים מהשטח (רשות - ניתן לעצור בכל עת)</span>
+              </span>
+            )}
+          </div>
+          <div className="font-semibold text-slate-500 dark:text-slate-400">
+            {!isSeedComplete ? (
+              <span>הצבעת על {seedVotedCount} מתוך {seedTotal} היגדים ({seedProgressPercent}%)</span>
+            ) : (
+              <span>הצבעת על {communityVotedCount} מתוך {communityTotal} רעיונות תושבים</span>
+            )}
+          </div>
         </div>
+
         <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
           <div 
-            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
+            className={`h-full rounded-full transition-all duration-300 ease-out ${
+              !isSeedComplete 
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
+                : 'bg-gradient-to-r from-purple-600 to-emerald-500'
+            }`}
+            style={{ 
+              width: `${!isSeedComplete 
+                ? seedProgressPercent 
+                : (communityTotal > 0 ? Math.round((communityVotedCount / communityTotal) * 100) : 100)}%` 
+            }}
           />
         </div>
       </div>
@@ -344,15 +396,44 @@ export const VoteView: React.FC<VoteViewProps> = ({
       {currentStatement ? (
         <div 
           key={currentStatement.id} 
-          className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all animate-in fade-in slide-in-from-right-3 duration-150"
+          className={`bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-md border relative overflow-hidden transition-all animate-in fade-in slide-in-from-right-3 duration-150 ${
+            isCurrentTierSeed 
+              ? 'border-slate-200 dark:border-slate-800' 
+              : 'border-purple-200 dark:border-purple-900/60 ring-2 ring-purple-100 dark:ring-purple-950/40'
+          }`}
         >
           {/* Card Top Pill */}
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-5">
-            <span className="font-bold text-slate-400 dark:text-slate-500">היגד #{currentStatement.id}</span>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium">
-                נותרו עוד {unvotedStatements.length} להצבעה
-              </span>
+            {isCurrentTierSeed ? (
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 rounded-lg font-black border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
+                  <span>🔒 היגד ברזל #{currentStatement.id}</span>
+                </span>
+                <span className="text-slate-400 font-medium hidden sm:inline">(שלב 1: שאלת חובה)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 rounded-lg font-black border border-purple-200 dark:border-purple-800/60 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>קולות השטח #{currentStatement.id}</span>
+                </span>
+                <span className="text-purple-600 dark:text-purple-400 font-bold hidden sm:inline">(שלב 2: רשות)</span>
+              </div>
+            )}
+
+            <div>
+              {isCurrentTierSeed ? (
+                <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium">
+                  נותרו עוד {unvotedSeed.length} שאלות ברזל
+                </span>
+              ) : (
+                <button
+                  onClick={onNavigateToDashboard}
+                  className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>סיום ומעבר לתוצאות 📊</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -408,15 +489,53 @@ export const VoteView: React.FC<VoteViewProps> = ({
             </button>
           </div>
         </div>
+      ) : isSeedComplete && !viewingCommunityTier ? (
+        /* Milestone Card: Completed Phase 1 (8 Iron Statements) */
+        <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-emerald-500/40 text-center space-y-6 animate-in fade-in zoom-in-95">
+          <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-400/40 shadow-inner">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+          <div>
+            <span className="bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider">
+              יעד הברזל הושלם בהצלחה
+            </span>
+            <h3 className="text-2xl sm:text-3xl font-black mt-3">
+              מעולה! עמדתך נקלטה במדד הקונצנזוס העירוני 🎉
+            </h3>
+            <p className="text-slate-300 mt-2 max-w-lg mx-auto text-sm sm:text-base leading-relaxed">
+              השלמת את כל 8 היגדי הברזל המחייבים. כעת תוכל לבחור: לעבור ישירות לצפייה במפת הקונצנזוס, או להמשיך לשלב הרשות ולהשפיע על רעיונות שהעלו תושבים אחרים.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={onNavigateToDashboard}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/50 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span>צפה במפת הקונצנזוס העירונית</span>
+            </button>
+
+            {communityStatements.length > 0 && (
+              <button
+                onClick={() => setViewingCommunityTier(true)}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-purple-950/50 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span>המשך לשלב 2: רעיונות התושבים ({unvotedCommunity.length} זמינים) 💡</span>
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
-        /* Completion State */
+        /* Final Completion State: Completed both or finished browsing */
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 sm:p-10 shadow-md border border-slate-200 dark:border-slate-800 text-center space-y-5 animate-in fade-in zoom-in-95">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <div>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-              כל הכבוד! הצבעת על כל ההיגדים בזירה זו
+              כל הכבוד! סיימת את ההצבעה בזירה זו 🏆
             </h3>
             <p className="text-slate-600 dark:text-slate-400 mt-2 max-w-lg mx-auto text-sm sm:text-base">
               עמדתך נקלטה כחלק מקבוצת <span className="font-bold text-slate-900 dark:text-white" style={{ color: activeGroupObj.color }}>{activeGroupObj.label}</span> ומסייעת לאלגוריתם לחשב את נקודות ההסכמה בעיר.
@@ -426,7 +545,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               onClick={onNavigateToDashboard}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>צפה במפת הקונצנזוס העירונית</span>
               <ArrowLeft className="w-4 h-4" />
@@ -436,7 +555,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
       )}
 
       {/* 4. COLLAPSIBLE PREVIOUS VOTES (CHANGE VOTE ANYTIME) */}
-      {votedCount > 0 && (
+      {totalVotedCount > 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
           <button
             onClick={() => setHistoryOpen(!historyOpen)}
@@ -444,7 +563,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
           >
             <div className="flex items-center gap-2">
               <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>ההצבעות שלי בזירה זו ({votedCount} היגדים) – ניתן לשנות בכל עת</span>
+              <span>ההצבעות שלי בזירה זו ({totalVotedCount} היגדים) – ניתן לשנות בכל עת</span>
             </div>
             {historyOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
           </button>
@@ -530,7 +649,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
               יש לך רעיון או הצעת פתרון שלא הופיעה כאן?
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              נסח/י משפט קצר ומעשי. המגשר החכם (AI) יוודא שהניסוח עומד בכללי השיח ולא כולל שמות פרטיים או לשון הרע.
+              נסח/י משפט קצר ומעשי. מנוע ה-AI יבדוק כפילות מול היגדים קיימים ואי-פגיעה בכללי השיח, וההצעה תתווסף ישירות לשלב רעיונות התושבים (שלב 2).
             </p>
           </div>
         </div>
@@ -564,23 +683,42 @@ export const VoteView: React.FC<VoteViewProps> = ({
               </div>
             </div>
 
-            {/* Feedback Alert / AI Reframing Card */}
+            {/* Feedback Alert / AI Reframing & Deduplication Card */}
             {moderationFeedback && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 space-y-3 animate-in fade-in">
+              <div className={`p-4 sm:p-5 rounded-2xl border-2 space-y-3 animate-in fade-in ${
+                moderationFeedback.isDuplicate 
+                  ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-950 dark:text-purple-200' 
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200'
+              }`}>
                 <div className="flex items-start gap-2.5">
-                  <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  {moderationFeedback.isDuplicate ? (
+                    <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  )}
                   <div>
-                    <div className="text-sm font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <div className="text-sm font-black flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      <span>הצעת המגשר החכם (AI Guardrail)</span>
+                      <span>{moderationFeedback.isDuplicate ? 'זיהוי כפילות ודמיון סמנטי (AI)' : 'הצעת המגשר החכם (AI Guardrail)'}</span>
                     </div>
-                    <p className="text-xs sm:text-sm text-amber-900/90 dark:text-amber-300 mt-1 leading-relaxed">
+                    <p className="text-xs sm:text-sm mt-1 leading-relaxed opacity-90">
                       {moderationFeedback.reason}
                     </p>
                   </div>
                 </div>
 
-                {moderationFeedback.suggestion && (
+                {moderationFeedback.similarStatement && (
+                  <div className="bg-white/90 dark:bg-slate-900/90 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 space-y-1.5">
+                    <div className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                      היגד תואם שכבר קיים במערכת:
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                      "{moderationFeedback.similarStatement}"
+                    </div>
+                  </div>
+                )}
+
+                {moderationFeedback.suggestion && !moderationFeedback.isDuplicate && (
                   <div className="bg-white/80 dark:bg-slate-900/90 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
                     <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
                       ניסוח מומלץ שיכול לזכות בהסכמה רחבה יותר מכל הצדדים:

@@ -294,23 +294,43 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
       return res.status(403).json({ error: 'המשאל נסגר להגשת היגדים נוספים.', isClosed: true });
     }
 
-    // Optional fast check: if author is an editor/admin or pre-moderated
+    // Fetch existing statements for this topic to check semantic similarity & deduplication
+    const existing = await cloudGetStatements(req.params.id, 'approved');
+    const existingTexts = (existing || []).map(s => s.text);
+
     const moderation = await moderateStatement({
       text: trimmed,
       topicTitle: topic.title,
-      topicCategory: topic.category
+      topicCategory: topic.category,
+      existingStatements: existingTexts
     });
 
-    const now = new Date().toISOString();
-    // If moderation passed, approve immediately; if rant or requires approval, set to pending
-    const status = moderation.passed ? 'approved' : 'pending';
+    // If identified as duplicate / highly similar to an existing statement
+    if (moderation.isDuplicate) {
+      return res.status(200).json({
+        statement: null,
+        moderation,
+        isDuplicate: true
+      });
+    }
 
+    // If failed guardrails (toxic / rant / PII / gibberish)
+    if (!moderation.passed) {
+      return res.status(200).json({
+        statement: null,
+        moderation,
+        passed: false
+      });
+    }
+
+    const now = new Date().toISOString();
+    // Unique non-duplicate citizen suggestions approved by AI join the dynamic tier (is_seed: false)
     const newStatement = await cloudCreateStatement({
       topic_id: topic.id,
       text: trimmed,
       author_group: author_group || 'general',
       is_seed: false,
-      status,
+      status: 'approved',
       created_at: now
     });
 
@@ -506,16 +526,23 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
-// AI Guardrail & Rephrasing (Rate limited)
+// AI Guardrail & Rephrasing & Deduplication (Rate limited)
 app.post('/api/ai/moderate', statementRateLimiter, async (req, res) => {
   try {
-    const { text, topicTitle, topicCategory } = req.body;
+    const { text, topicTitle, topicCategory, topicId, existingStatements } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
+
+    let existingTexts = existingStatements;
+    if (!existingTexts && topicId) {
+      const existing = await cloudGetStatements(topicId, 'approved');
+      existingTexts = (existing || []).map(s => s.text);
+    }
 
     const result = await moderateStatement({
       text,
       topicTitle,
-      topicCategory
+      topicCategory,
+      existingStatements: existingTexts || []
     });
     res.json(result);
   } catch (err) {

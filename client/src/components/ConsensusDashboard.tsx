@@ -31,7 +31,7 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
   analytics,
   onNavigateToReport
 }) => {
-  const [filterMode, setFilterMode] = useState<'all' | 'bridging' | 'divisive'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'iron' | 'community' | 'bridging' | 'divisive'>('all');
   const [searchQuery] = useState('');
 
   const { topic, meta, statements, topBridging, topDivisive } = analytics;
@@ -39,6 +39,8 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
 
   // Filter statements according to tab and search
   const filteredStatements = statements.filter(st => {
+    if (filterMode === 'iron' && !st.is_seed) return false;
+    if (filterMode === 'community' && st.is_seed) return false;
     if (filterMode === 'bridging' && !st.isBridging) return false;
     if (filterMode === 'divisive' && !st.isDivisive) return false;
     if (searchQuery.trim() && !st.text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -321,7 +323,7 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-start sm:self-auto text-xs font-bold">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-start sm:self-auto text-xs font-bold">
             <button
               onClick={() => setFilterMode('all')}
               className={`px-3 py-1.5 rounded-lg transition ${
@@ -331,6 +333,26 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
               }`}
             >
               הכל ({statements.length})
+            </button>
+            <button
+              onClick={() => setFilterMode('iron')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                filterMode === 'iron' 
+                  ? 'bg-blue-600 text-white shadow-xs' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              🔒 היגדי ברזל ({statements.filter(s => Boolean(s.is_seed)).length})
+            </button>
+            <button
+              onClick={() => setFilterMode('community')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                filterMode === 'community' 
+                  ? 'bg-purple-600 text-white shadow-xs' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              ✨ קולות התושבים ({statements.filter(s => !s.is_seed).length})
             </button>
             <button
               onClick={() => setFilterMode('bridging')}
@@ -362,6 +384,15 @@ export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-xs text-slate-400 dark:text-slate-500">#{st.id}</span>
+                  {Boolean(st.is_seed) ? (
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      🔒 היגד ברזל
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      ✨ הצעת תושב
+                    </span>
+                  )}
                   {st.isBridging && (
                     <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       הצהרת גשר

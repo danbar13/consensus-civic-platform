@@ -4,8 +4,10 @@ dotenv.config();
 import { logAICall } from './logger.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-3.5-flash';
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
+const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-1.5-flash';
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+
+let geminiAuthFailed = false;
 
 /**
  * Utility: sleep for specified milliseconds
@@ -22,7 +24,16 @@ async function callGeminiWithRetryAndFallback({
   primaryModel = PRIMARY_MODEL,
   fallbackModel = FALLBACK_MODEL
 }) {
-  if (!GEMINI_API_KEY) {
+  if (!GEMINI_API_KEY || geminiAuthFailed) {
+    return null;
+  }
+
+  // Google AI Studio API keys start with 'AIza'. If an invalid token/key is set, avoid redundant network delays
+  if (!GEMINI_API_KEY.startsWith('AIza')) {
+    if (!geminiAuthFailed) {
+      console.warn(`[${action}] GEMINI_API_KEY format is not a Google AI Studio key (starts with 'AIza'). Engaging instant built-in semantic & moderation engine.`);
+      geminiAuthFailed = true;
+    }
     return null;
   }
 
@@ -44,13 +55,30 @@ async function callGeminiWithRetryAndFallback({
           bodyPayload.generationConfig = { responseMimeType };
         }
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyPayload)
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        let res;
+        try {
+          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyPayload),
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         const durationMs = Date.now() - startTime;
+
+        // Fatal client/auth error: do NOT retry, immediately fallback
+        if (res.status === 400 || res.status === 401 || res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          console.warn(`[${action}] Fatal API error ${res.status}: ${errData?.error?.message || 'Invalid key'}. Aborting retries and engaging graceful fallback.`);
+          geminiAuthFailed = true;
+          return null;
+        }
 
         // Check for rate limit or temporary server overload
         if (res.status === 429 || res.status === 503 || res.status === 500) {
@@ -131,7 +159,7 @@ async function callGeminiWithRetryAndFallback({
  * Checks for defamation (לשון הרע), PII (personal names), toxic phrasing, and ranting.
  * Distinguishes legitimate criticism from toxic attacks and prompt injections.
  */
-export async function moderateStatement({ text, topicTitle = '', topicCategory = '' }) {
+export async function moderateStatement({ text, topicTitle = '', topicCategory = '', existingStatements = [] }) {
   const trimmed = (text || '').trim();
 
   // Edge case: empty or whitespace
@@ -139,6 +167,8 @@ export async function moderateStatement({ text, topicTitle = '', topicCategory =
     return {
       passed: false,
       isRant: false,
+      isDuplicate: false,
+      similarStatement: null,
       reason: 'לא הוזן תוכן בהיגד. יש להזין היגד ענייני להצבעת הציבור.',
       suggestion: ''
     };
@@ -149,6 +179,8 @@ export async function moderateStatement({ text, topicTitle = '', topicCategory =
     return {
       passed: false,
       isRant: false,
+      isDuplicate: false,
+      similarStatement: null,
       reason: 'הטקסט שהוזן קצר מדי או מכיל תווים חזרתיים ללא משמעות עניינית.',
       suggestion: 'אנא נסח עמדה ברורה ומנומקת בנושא הדיון.'
     };
@@ -157,7 +189,7 @@ export async function moderateStatement({ text, topicTitle = '', topicCategory =
   // Try live Gemini with retry and fallback
   if (GEMINI_API_KEY) {
     try {
-      const response = await callGeminiModeration(trimmed, topicTitle);
+      const response = await callGeminiModeration(trimmed, topicTitle, existingStatements);
       if (response) return response;
     } catch (err) {
       console.warn('⚠️ Live Gemini moderation failed after retries and fallback, using high-fidelity heuristic mediator:', err.message);
@@ -165,7 +197,7 @@ export async function moderateStatement({ text, topicTitle = '', topicCategory =
   }
 
   // Heuristic Hebrew mediator fallback
-  return simulatedHebrewModeration(trimmed);
+  return simulatedHebrewModeration(trimmed, existingStatements);
 }
 
 /**
@@ -204,7 +236,11 @@ export async function suggestTopicStatements({ title, category = 'municipal', or
 // Live Gemini Call Implementations
 // -------------------------------------------------------------
 
-async function callGeminiModeration(text, topicTitle) {
+async function callGeminiModeration(text, topicTitle, existingStatements = []) {
+  const existingListText = Array.isArray(existingStatements) && existingStatements.length > 0
+    ? existingStatements.map((s, idx) => `${idx + 1}. "${typeof s === 'string' ? s : s?.text || s}"`).join('\n')
+    : '';
+
   const prompt = `
 אתה מגשר קהילתי, עורך תוכן בכיר ושומר סף אתי במערכת דמוקרטיה חישובית וקונצנזוס אזרחי (דמוי Polis / Talk to the City) בעיר אילת.
 סוגיית הדיון הנוכחית: "${topicTitle || 'סוגיה עירונית וציבורית באילת'}".
@@ -214,10 +250,24 @@ async function callGeminiModeration(text, topicTitle) {
 ${text}
 """
 
+${existingListText ? `
+רשימת ההיגדים שכבר קיימים כרגע בזירת דיון זו:
+${existingListText}
+
+כלל קריטי למניעת כפילויות (Semantic Similarity & Deduplication Check):
+אם ההיגד שהמשתמש הציע מביע במהותו את אותו רעיון, אותה דרישה, אותה תלונה או אותו פתרון שכבר מופיע באחד ההיגדים הקיימים למעלה (גם אם בניסוח קצת שונה, מילים נרדפות או וריאציה תחבירית):
+- חובה להגדיר: "isDuplicate": true
+- חובה להגדיר: "passed": false
+- חובה להגדיר: "isRant": false
+- חובה להגדיר: "similarStatement": "<ההיגד הקיים הכי דומה מתוך הרשימה לעיל>"
+- חובה להגדיר: "reason": "הרעיון שלך מצוין! כבר קיים היגד דומה במערכת: \\"<ההיגד הקיים הכי דומה>\\". מומלץ להצביע עליו כדי לחזק את התמיכה בו!"
+- חובה להגדיר: "suggestion": "<ההיגד הקיים הכי דומה>"
+` : ''}
+
 עליך לנתח את הטקסט בקפידה על פי הכללים הבאים:
-1. **חופש ביטוי וביקורת לגיטימית (חייב לעבור - passed: true):**
+1. **חופש ביטוי וביקורת לגיטימית (חייב לעבור - passed: true אם אינו כפול):**
    - ביקורת עניינית, חריפה או נוקבת על מדיניות עיריית אילת, תפקוד שירותים עירוניים, פקקים, בעיות חניה, יוקר המחיה, מחירי טיסות, תיירות או ניקיון — הינה **לגיטימית ומבורכת**.
-   - אם הביקורת מנוסחת כלפי גוף/מדיניות/תופעה ללא שמות פרטיים של עובדים/נבחרי ציבור ספציפיים וללא קללות והשמצות אישיות, יש **לאשר אותה (passed: true, isRant: false)**.
+   - אם הביקורת מנוסחת כלפי גוף/מדיניות/תופעה ללא שמות פרטיים של עובדים/נבחרי ציבור ספציפיים וללא קללות והשמצות אישיות, יש **לאשר אותה (passed: true, isRant: false, isDuplicate: false)**.
 
 2. **לשון הרע, השמצה ופגיעה (חייב להיפסל - passed: false):**
    - שמות של אנשים פרטיים או התייחסות פרסונלית פוגענית (PII).
@@ -232,8 +282,10 @@ ${text}
 {
   "passed": boolean,
   "isRant": boolean,
+  "isDuplicate": boolean,
+  "similarStatement": string | null,
   "reason": "הסבר מנומס ומדויק בעברית מדוע ההיגד אושר או נפסל",
-  "suggestion": "אם נפסל: ניסוח חלופי ענייני, מגשר, קונסטרוקטיבי וקצר בעברית (עד 140 תווים) שמתמקד בפתרון ולא בהאשמות אישיות. אם אושר: הטקסט המקורי."
+  "suggestion": "אם נפסל או כפול: ניסוח חלופי ענייני או ההיגד הקיים. אם אושר: הטקסט המקורי."
 }
 `;
 
@@ -303,6 +355,13 @@ async function callGeminiReport(topic, analytics, templateType) {
     `${idx + 1}. "${s.text}" (ציון קיטוב: ${s.divisiveScore}%, פער בין קבוצות)`
   ).join('\n');
 
+  const communityProposals = (analytics.statements || [])
+    .filter(s => !s.is_seed && (s.votesSummary?.total || 0) > 0)
+    .sort((a, b) => (b.votesSummary?.overallSupportPercent || 0) - (a.votesSummary?.overallSupportPercent || 0))
+    .slice(0, 3)
+    .map((s, idx) => `${idx + 1}. "${s.text}" (תמיכה כללית: ${s.votesSummary?.overallSupportPercent}%, סך קולות: ${s.votesSummary?.total})`)
+    .join('\n');
+
   const isPress = templateType === 'press';
   const rolePrompt = isPress
     ? `אתה עיתונאי חוקר ומנתח נתונים בכיר במקומון "ערב ערב באילת". עליך לכתוב כתבת עומק תמציתית, חדה ומרתקת המנתחת את תוצאות משאל הקונצנזוס העירוני.`
@@ -315,11 +374,14 @@ ${rolePrompt}
 ארגון יוזם: ${topic.organization}
 נתוני השתתפות: ${analytics.meta.totalParticipants} משתתפים ייחודיים, ${analytics.meta.totalVotesCast} הצבעות שנרשמו. מדד קונצנזוס כללי: ${analytics.meta.consensusIndex}%.
 
-הצהרות הגשר שזכו להסכמה רחבה מכל הקבוצות:
+הצהרות הגשר המובילות מסוגיות הליבה (היגדי הברזל):
 ${topB}
 
-סלעי המחלוקת (היגדים מקטבים בעלי פער עמדות עמוק):
+סלעי המחלוקת המרכזיים:
 ${topD}
+
+הצעות בולטות שהעלו התושבים מהשטח (שלב הרשות):
+${communityProposals || 'טרם נרשמו הצעות תושבים נוספות עם נתוני הצבעה.'}
 
 כתוב מסמך מקצועי בעברית עשירה וקולחת במבנה הבא (החזר טקסט מעוצב במרקדאון):
 ${isPress ? `
@@ -330,10 +392,13 @@ ${isPress ? `
 [פסקה קצרה על היקף ההשתתפות והמגמה הבולטת]
 
 ### 🤝 פתרונות הקונצנזוס: מה שמאחד את התושבים, העסקים והתיירות
-[ניתוח מעמיק של 2-3 הצהרות הגשר המובילות וההשלכות המעשיות שלהן]
+[ניתוח מעמיק של 2-3 הצהרות הגשר המובילות בסוגיות הליבה וההשלכות המעשיות שלהן]
 
 ### ⚡ סלעי המחלוקת: היכן העיר נחצית לשניים?
 [פירוט של נקודות החיכוך המרכזיות והחששות של כל צד]
+
+### 💡 קולות השטח: רעיונות שהעלו האזרחים
+[ניתוח תמציתי של הצעות מקוריות שעלו מהציבור וזכו לתמיכה מפתיעה]
 
 ### ❓ שלוש שאלות פתוחות להנהגת העירייה
 1. ...
@@ -420,7 +485,7 @@ function getCuratedSuggestedStatements(title, category) {
 // High-Fidelity Heuristic Fallbacks (when Gemini API is offline or exhausted)
 // -------------------------------------------------------------
 
-function simulatedHebrewModeration(text) {
+function simulatedHebrewModeration(text, existingStatements = []) {
   const lower = text.toLowerCase();
 
   // Prompt injection patterns
@@ -428,6 +493,8 @@ function simulatedHebrewModeration(text) {
     return {
       passed: false,
       isRant: false,
+      isDuplicate: false,
+      similarStatement: null,
       reason: 'זוהה ניסיון לעקוף את מנגנון ההנחיות והאימות של הפלטפורמה.',
       suggestion: 'אנא הזן היגד ענייני הנוגע למדיניות או פתרון ציבורי באילת.'
     };
@@ -449,6 +516,8 @@ function simulatedHebrewModeration(text) {
     return {
       passed: false,
       isRant: true,
+      isDuplicate: false,
+      similarStatement: null,
       reason: 'ההיגד כולל שמות של אנשים פרטיים או התייחסות פרסונלית. לפי כללי הפלטפורמה, הדיון מתמקד במדיניות ופתרונות ולא באנשים.',
       suggestion: 'להגביר את האכיפה והפיקוח על חניה לא חוקית ברחובות השכונתיים באמצעות סיורים תכופים ומוקד עירוני זמין.'
     };
@@ -469,9 +538,44 @@ function simulatedHebrewModeration(text) {
     return {
       passed: false,
       isRant: true,
+      isDuplicate: false,
+      similarStatement: null,
       reason: `ההיגד נוסח בנימה פוגענית וכולל ביטויים מעוררי התנגדות ("${foundToxic}"). ניסוח מגשר יסייע לרעיון שלך לזכות בתמיכה רחבה.`,
       suggestion
     };
+  }
+
+  // Check for duplicate / high semantic overlap against existing statements
+  if (Array.isArray(existingStatements) && existingStatements.length > 0) {
+    const normalizeWords = (s) => (typeof s === 'string' ? s : s?.text || '')
+      .toLowerCase()
+      .replace(/[^\u0590-\u05FFa-z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+
+    const inputWords = new Set(normalizeWords(text));
+    if (inputWords.size >= 3) {
+      for (const exist of existingStatements) {
+        const existText = typeof exist === 'string' ? exist : exist?.text;
+        if (!existText) continue;
+        const existWords = normalizeWords(existText);
+        if (existWords.length < 3) continue;
+
+        const shared = existWords.filter(w => inputWords.has(w));
+        const overlap = shared.length / Math.min(inputWords.size, existWords.length);
+
+        if (overlap >= 0.52) {
+          return {
+            passed: false,
+            isDuplicate: true,
+            isRant: false,
+            similarStatement: existText,
+            reason: `הרעיון שלך מצוין! כבר קיים היגד דומה במערכת: "${existText}". מומלץ להצביע עליו כדי לחזק את התמיכה בו!`,
+            suggestion: existText
+          };
+        }
+      }
+    }
   }
 
   // Gibberish / Too short
@@ -479,6 +583,8 @@ function simulatedHebrewModeration(text) {
     return {
       passed: false,
       isRant: false,
+      isDuplicate: false,
+      similarStatement: null,
       reason: 'ההיגד קצר מדי. כדאי לנסח משפט שלם שמציע פעולה או עמדה קונקרטית שניתן להצביע עליה.',
       suggestion: `${text} – לקדם פתרון מוסדר בשיתוף נציגי התושבים והגורמים העירוניים.`
     };
@@ -488,6 +594,8 @@ function simulatedHebrewModeration(text) {
   return {
     passed: true,
     isRant: false,
+    isDuplicate: false,
+    similarStatement: null,
     reason: 'ההיגד מנוסח בצורה עניינית, ועומד בכללי האתיקה והשיח הציבורי.',
     suggestion: text
   };
