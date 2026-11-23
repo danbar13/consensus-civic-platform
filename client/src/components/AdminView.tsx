@@ -84,9 +84,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
   const [statements, setStatements] = useState<Statement[]>([]);
   const [allStatements, setAllStatements] = useState<Statement[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-
-  const pendingCount = allStatements.filter(s => s.status === 'pending').length;
+  const [statusFilter, setStatusFilter] = useState<'approved' | 'rejected'>('approved');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [copiedEmbed, setCopiedEmbed] = useState(false);
@@ -199,10 +197,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     try {
       const all = await fetchStatements(currentTopic.id);
       setAllStatements(all);
-      if (statusFilter === 'all') {
-        setStatements(all);
+      if (statusFilter === 'approved') {
+        setStatements(all.filter(s => s.status === 'approved'));
       } else {
-        setStatements(all.filter(s => s.status === statusFilter));
+        setStatements(all.filter(s => s.status !== 'approved'));
       }
     } catch (err) {
       console.error('Error fetching statements:', err);
@@ -533,96 +531,87 @@ export const AdminView: React.FC<AdminViewProps> = ({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       
-      {/* Editorial Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
-        <button
-          onClick={() => setAdminSubTab('moderation')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'moderation'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>סינון היגדים</span>
-          {pendingCount > 0 && (
-            <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-xs">
-              {pendingCount}
-            </span>
-          )}
-        </button>
+      {/* Editorial Navigation Tabs & Cloud Status Indicator */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => setAdminSubTab('moderation')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'moderation'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>מאגר היגדים</span>
+          </button>
 
-        <button
-          onClick={() => setAdminSubTab('report')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'report'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>הכנת כתבה (AI Report) 📰</span>
-        </button>
+          <button
+            onClick={() => setAdminSubTab('report')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'report'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>הכנת כתבה (AI Report) 📰</span>
+          </button>
 
-        <button
-          onClick={() => setAdminSubTab('results')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'results'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>מפת תוצאות וקונצנזוס</span>
-        </button>
+          <button
+            onClick={() => setAdminSubTab('results')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'results'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>מפת תוצאות וקונצנזוס</span>
+          </button>
 
-        <button
-          onClick={() => setAdminSubTab('topics')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'topics'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          <span>ניהול זירות וסגירה</span>
-        </button>
+          <button
+            onClick={() => setAdminSubTab('topics')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'topics'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>ניהול זירות וסגירה</span>
+          </button>
 
-        <button
-          onClick={() => setAdminSubTab('observability')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'observability'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>מעקב עלויות AI ולוגים</span>
-        </button>
+          <button
+            onClick={() => setAdminSubTab('observability')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'observability'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>מעקב עלויות AI ולוגים</span>
+          </button>
 
-        <button
-          onClick={() => setAdminSubTab('embed')}
-          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-            adminSubTab === 'embed'
-              ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Code2 className="w-4 h-4" />
-          <span>קודי הטמעה</span>
-        </button>
-      </div>
-
-      {/* Cloud Database (Supabase) Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-2xl text-xs">
-        <div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
-          <Database className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-          <span className="font-bold">תשתית ענן מנוהלת (Supabase PostgreSQL):</span>
-          <span className="text-sky-700 dark:text-sky-300">מסלול חינמי פעיל (Free Tier) – התמדה מלאה ללא הגבלת זמן</span>
+          <button
+            onClick={() => setAdminSubTab('embed')}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              adminSubTab === 'embed'
+                ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Code2 className="w-4 h-4" />
+            <span>קודי הטמעה</span>
+          </button>
         </div>
-        <div className="flex items-center gap-3 font-bold text-[11px]">
-          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-            סנכרון ענן פעיל
+
+        {/* Online Cloud Connection Indicator Badge */}
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-bold text-xs shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span>סנכרון ענן פעיל</span>
           </span>
         </div>
       </div>
@@ -1094,51 +1083,48 @@ export const AdminView: React.FC<AdminViewProps> = ({
       </div>
       )}
 
-      {/* TAB 4: MODERATION & STATEMENTS MANAGEMENT */}
+      {/* TAB 4: STATEMENTS MANAGEMENT */}
       {adminSubTab === 'moderation' && (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              ניהול ואישור היגדים בזירה זו (Moderation Queue)
+              מאגר ההיגדים בזירה
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              אישור הצעות גולשים, עריכת ניסוחים ומחיקת היגדים לא הולמים
+              צפייה בהיגדים שאושרו להצבעת הציבור, עריכת ניסוחים והסרת היגדים לא הולמים
             </p>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold self-start sm:self-auto">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map(status => {
-              const count = status === 'all' 
-                ? allStatements.length 
-                : allStatements.filter(s => s.status === status).length;
-              return (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                    statusFilter === status
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span>
-                    {status === 'all' && 'הכל'}
-                    {status === 'pending' && 'ממתינים לאישור'}
-                    {status === 'approved' && 'מאושרים'}
-                    {status === 'rejected' && 'נדחו'}
-                  </span>
-                  <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
-                    status === 'pending' && count > 0
-                      ? 'bg-rose-500 text-white'
-                      : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Status Filter: אושרו / לא אושרו */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold self-start sm:self-auto">
+            <button
+              onClick={() => setStatusFilter('approved')}
+              className={`px-3.5 py-1.5 rounded-lg transition flex items-center gap-2 cursor-pointer ${
+                statusFilter === 'approved'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span>אושרו</span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
+                {allStatements.filter(s => s.status === 'approved').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter('rejected')}
+              className={`px-3.5 py-1.5 rounded-lg transition flex items-center gap-2 cursor-pointer ${
+                statusFilter === 'rejected'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span>לא אושרו</span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
+                {allStatements.filter(s => s.status !== 'approved').length}
+              </span>
+            </button>
           </div>
         </div>
 
