@@ -239,9 +239,13 @@ export const Header: React.FC<HeaderProps> = ({
             {activeTab === 'admin' ? (
               <>
                 <button
-                  onClick={() => onSelectTab('vote')}
+                  onClick={() => {
+                    if (window.confirm('⚠️ שים לב: לחיצה על מעבר לשאלון תוציא אותך ממסך הניהול (Admin) ותעביר אותך לתצוגת האזרח.\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית העמוד או בכתובת tab=admin.\n\nהאם לעבור לשאלון האזרחי?')) {
+                      onSelectTab('vote');
+                    }
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition"
-                  title="מעבר לשאלון החי כפי שהתושב רואה אותו"
+                  title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
                 >
                   <Vote className="w-3.5 h-3.5" />
                   <span>שאלון תושב 👁️</span>

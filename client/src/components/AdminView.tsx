@@ -48,7 +48,8 @@ import {
   Download,
   Database,
   Eye,
-  BarChart3
+  BarChart3,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -87,6 +88,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editText, setEditText] = useState('');
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [adminEmbedTheme, setAdminEmbedTheme] = useState<'auto' | 'dark' | 'light'>('auto');
+  const [showExitWarningModal, setShowExitWarningModal] = useState(false);
+
+  const handleRequestNavigateToVote = () => {
+    setShowExitWarningModal(true);
+  };
 
   // New topic modal form state
   const [showNewTopicModal, setShowNewTopicModal] = useState(false);
@@ -529,14 +535,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {onNavigateToVote && (
-            <button
-              onClick={onNavigateToVote}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800/60 transition cursor-pointer"
-              title="מעבר לשאלון כפי שרואה אותו התושב"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>שאלון תושב 👁️</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold hidden sm:flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800/60">
+                <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500" />
+                <span>מעבר יוציא מאדמין</span>
+              </span>
+              <button
+                onClick={handleRequestNavigateToVote}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800/60 transition cursor-pointer"
+                title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>שאלון תושב 👁️</span>
+              </button>
+            </div>
           )}
           <button
             onClick={handleAdminLogout}
@@ -1275,8 +1287,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
             {onNavigateToVote && (
               <button
-                onClick={onNavigateToVote}
+                onClick={handleRequestNavigateToVote}
                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
               >
                 <span>מעבר להצבעה בשאלון האזרחי ↗</span>
               </button>
@@ -1837,6 +1850,68 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* WARNING MODAL: EXITING ADMIN SCREEN TO CITIZEN QUESTIONNAIRE */}
+      {showExitWarningModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-right transition-colors">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto shadow-inner">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                אזהרת יציאה ממסך הניהול
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                לחיצה על כניסה לשאלון <strong className="text-amber-600 dark:text-amber-400">תוציא אותך לחלוטין ממסך האדמין</strong> ותעביר אותך לתצוגת האזרח וההצבעה החיה.
+              </p>
+              <div className="p-3 mt-3 bg-slate-50 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 text-right space-y-1.5">
+                <div className="flex items-start gap-1.5">
+                  <span className="text-amber-500 font-bold">•</span>
+                  <span>במסך האזרח <strong>לא יוצגו</strong> כלי ניהול, סינון תוכן או מחולל דוחות.</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-amber-500 font-bold">•</span>
+                  <span>תוכל לחזור למסך הניהול דרך הקישור <strong>"כניסת עורכים ומנהלים 🔐"</strong> בתחתית העמוד (Footer) או בכתובת <code>?tab=admin</code>.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(`${window.location.origin}/?topic=${encodeURIComponent(currentTopic.id)}`, '_blank');
+                  setShowExitWarningModal(false);
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border border-blue-200 dark:border-blue-800"
+              >
+                <span>מומלץ: פתח שאלון תושב בלשונית נפרדת (הישאר כאדמין) ↗</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExitWarningModal(false);
+                  if (onNavigateToVote) onNavigateToVote();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>הבנתי, העבר אותי לשאלון האזרחי באותו חלון 👤</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowExitWarningModal(false)}
+                className="w-full py-2 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium transition cursor-pointer"
+              >
+                <span>ביטול (הישאר במסך הניהול)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
