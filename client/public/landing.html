@@ -263,15 +263,15 @@
         <ul class="space-y-3 text-sm text-slate-200">
           <li class="flex items-start gap-2">
             <span class="text-emerald-400 font-bold mt-0.5">✓</span>
-            <span><strong>אין כפתור "Reply" (ללא התנצחויות):</strong> מצביעים על הצעות קצרות ומציעים פתרונות חדשים — בלי יכולת לתקוף גולש אחר.</span>
+            <span><strong>מודל דו-רובדי (8 היגדי ברזל + קהילה):</strong> שאלון ליבה מחייב של 8 היגדים קבועים מבטיח השוואה סטטיסטית תקפה בין כל המגזרים, לצד רובד פתוח להצעות תושבים.</span>
           </li>
           <li class="flex items-start gap-2">
             <span class="text-emerald-400 font-bold mt-0.5">✓</span>
-            <span><strong>זיהוי אוטומטי של "הצהרות גשר":</strong> האלגוריתם חושף פתרונות שזוכים לתמיכה גם מתושבי השכונות, גם מהסוחרים וגם מהתיירות.</span>
+            <span><strong>אישור AI מהיר ומניעת כפילויות (Deduplication):</strong> מנוע ה-AI בודק הצעות תושבים בשניות, מונע כפילויות, מסנן לשון הרע ומאשר ישירות לענן — באפס עומס על העורכים.</span>
           </li>
           <li class="flex items-start gap-2">
             <span class="text-emerald-400 font-bold mt-0.5">✓</span>
-            <span><strong>שער AI נגד לשון הרע + כתבה מוכנה:</strong> סינון אוטומטי של השמצות והפקת דו"ח נתונים מוכן לפרסום בגיליון יום חמישי.</span>
+            <span><strong>זיהוי אוטומטי של "הצהרות גשר" וטיוטת כתבה:</strong> אלגוריתם הקונצנזוס חושף היכן 80% מהאילתים מסכימים ומפיק אוטומטית טיוטת כתבה עיתונאית לגיליון יום חמישי.</span>
           </li>
         </ul>
       </div>
@@ -296,7 +296,7 @@
             1. חוויית הקורא והצבעה
           </button>
           <button type="button" data-sim-tab="guardrail" class="sim-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">
-            2. שער AI נגד לשון הרע
+            2. מנוע AI: כפילויות ולשון הרע
           </button>
           <button type="button" data-sim-tab="report" class="sim-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition">
             3. תוצר הכתבה לעיתון
@@ -402,15 +402,15 @@
         </div>
       </div>
 
-      <!-- TAB 2: AI Defamation Guardrail Simulator -->
+      <!-- TAB 2: AI Defamation Guardrail & Deduplication Simulator -->
       <div id="sim-panel-guardrail" class="hidden grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div class="lg:col-span-6 bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 class="text-lg font-extrabold text-white">בדיקת שער הבטיחות והגנת לשון הרע (Gemini AI)</h3>
-            <span class="text-xs font-bold bg-amber-950/60 text-amber-300 border border-amber-800/60 px-2.5 py-1 rounded-full">הגנה משפטית לעיתון</span>
+            <h3 class="text-lg font-extrabold text-white">בדיקת AI חכמה: מניעת כפילויות והגנת לשון הרע (Gemini AI)</h3>
+            <span class="text-xs font-bold bg-amber-950/60 text-amber-300 border border-amber-800/60 px-2.5 py-1 rounded-full">קליטה אוטומטית ללא עומס עורך</span>
           </div>
           <p class="text-xs sm:text-sm text-slate-300">
-            במקומון, תגובות גולשים הן סיכון משפטי מתמיד. נסו לבחור אחת מהדוגמאות המתלהמות למטה (או הקלידו משפט משלכם) וראו כיצד ה-AI עוצר שמות פרטיים והשמצות ומציע ניסוח ענייני ומגשר:
+            במקומון, תגובות גולשים הן עומס ניהולי וסיכון משפטי. המערכת מפעילה מנוע AI כפול: <strong>סינון שמות פרטיים והשמצות</strong> יחד עם <strong>מניעת כפילויות חכמה</strong>. היגדים תקינים מאושרים ונקלטים מיידית לענן להצבעת הקוראים — ללא צורך בהתערבות עורך!
           </p>
 
           <div class="space-y-2">
@@ -422,8 +422,11 @@
               <button type="button" data-sample-input="הפקחים של העירייה מושחתים ונותנים דוחות באזור התעשייה רק למי שלא מקורב לצלחת!" class="sample-rant-btn text-xs bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 px-3 py-1.5 rounded-lg font-medium transition">
                 ⚠️ דוגמה 2: האשמה שעלולה להוות לשון הרע
               </button>
+              <button type="button" data-sample-input="צריך לבנות חניון חנה וסע בתשלום בשטח שדה התעופה הישן עם שאטל ישיר לטאבה" class="sample-rant-btn text-xs bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-800/60 px-3 py-1.5 rounded-lg font-medium transition">
+                🔄 דוגמה 3: זיהוי היגד כפול שכבר קיים במשאל
+              </button>
               <button type="button" data-sample-input="יש להקצות חניון ייעודי בחינם לעובדי אזור התעשייה ולהגביל חניית לקוחות לשעתיים עם תו תושב." class="sample-rant-btn text-xs bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 px-3 py-1.5 rounded-lg font-medium transition">
-                ✅ דוגמה 3: הצעה עניינית ותקינה
+                ✅ דוגמה 4: הצעה עניינית ותקינה (קליטה ישירה)
               </button>
             </div>
           </div>
@@ -435,31 +438,31 @@
 
           <button type="button" id="runGuardrailBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-sky-900/30">
             <span>🛡️</span>
-            <span>הפעל בדיקת AI וניסוח מגשר</span>
+            <span>הפעל בדיקת AI, מניעת כפילויות וניסוח מגשר</span>
           </button>
         </div>
 
         <!-- Guardrail Output Result -->
         <div class="lg:col-span-6 bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
-          <h3 class="text-lg font-bold text-white">תוצאת מנוע הבקרה והגישור (AI Moderation)</h3>
+          <h3 class="text-lg font-bold text-white">תוצאת מנוע הבקרה והקליטה (Smart AI Ingestion)</h3>
           <div id="guardrailResultBox" class="bg-slate-900/90 border border-amber-500/40 rounded-xl p-5 space-y-4">
             <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
               <span>⚠️</span>
-              <span id="guardrailStatusTitle">זוהתה שפה מתלהמת / פוטנציאל פגיעה — ההיגד המקורי נחסם לפרסום ישיר</span>
+              <span id="guardrailStatusTitle">זוהתה שפה מתלהמת / פוטנציאל פגיעה — הוצע ניסוח מגשר ענייני</span>
             </div>
             <p id="guardrailReason" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              המערכת זיהתה ביטויים תוקפניים ("חוצפנים", "גונבים", "לפנצ'ר") שאינם מתאימים לשיח הציבורי ב"ערב ערב באילת". עם זאת, זוהתה נקודה עניינית לגבי חניה ארוכת טווח בשכונות המגורים.
+              המערכת זיהתה ביטויים תוקפניים ("חוצפנים", "גונבים", "לפנצ'ר") שאינם מתאימים לשיח הציבורי. ה-AI חילץ את הרעיון המהותי, בדק שאינו כפול, וניסח הצעת מדיניות נקייה שנקלטת אוטומטית לענן:
             </p>
             <div class="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-4 space-y-2">
-              <div class="text-xs font-bold text-emerald-300">✨ הצעת המגשר החכם (ניסוח נקי וחוקי להצבעה):</div>
+              <div class="text-xs font-bold text-emerald-300">✨ הצעת המגשר החכם (נקלט מיידית לסקר הקהילה):</div>
               <p id="guardrailReframedText" class="text-sm sm:text-base font-bold text-white">
                 "יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל אכיפה וגרירה לחניון מוסדר."
               </p>
               <button type="button" id="approveReframedBtn" class="mt-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
-                אשר ושלח ניסוח זה לתור העורך ✓
+                קלוט היגד זה לסקר בענן ✓
               </button>
               <p id="reframedApprovedToast" class="hidden text-xs text-emerald-300 font-semibold pt-1">
-                ✓ ההיגד המגשר נשמר והועבר לאישור מהיר של עורך "ערב ערב"!
+                ✓ ההיגד נבדק, אושר ונקלט מיידית בענן להצבעת תושבי אילת — באפס עומס על עורכי העיתון!
               </p>
             </div>
           </div>
@@ -538,23 +541,23 @@
             <div class="w-9 h-9 rounded-lg bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center justify-center font-bold shrink-0">1</div>
             <div>
               <h3 class="font-bold text-white text-sm sm:text-base">אין תגובות חופשיות ואין שרשורים (Zero-Reply Architecture)</h3>
-              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">גולשים לא יכולים להגיב זה לזה, לתייג אנשים או לפתוח ויכוחים. ניתן רק להצביע "מסכים / לא מסכים" על היגדים מאושרים.</p>
+              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">גולשים לא יכולים להגיב זה לזה, לתייג אנשים או לפתוח ויכוחים. ניתן רק להצביע "מסכים / לא מסכים / מדלג" על היגדים מובנים.</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3.5 bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md">
             <div class="w-9 h-9 rounded-lg bg-sky-950/80 text-sky-400 border border-sky-800/60 flex items-center justify-center font-bold shrink-0">2</div>
             <div>
-              <h3 class="font-bold text-white text-sm sm:text-base">סינון AI אוטומטי לשמות פרטיים והשמצות (PII & Defamation Guard)</h3>
-              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">כל הצעה חדשה עוברת דרך מודל שפה שמזהה שמות של אנשים או בעלי תפקידים, חוסם קללות וממיר טקסט כועס להצעת מדיניות נקייה.</p>
+              <h3 class="font-bold text-white text-sm sm:text-base">סינון AI אוטומטי, מניעת כפילויות והגנת לשון הרע (AI Deduplication & Guard)</h3>
+              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">כל הצעה חדשה נבדקת מיידית ע"י מודל שפה: חוסמת שמות פרטיים והשמצות, מוודאת שאינה כפילות של היגד קיים, וממירה טענות זועמות להצעת מדיניות נקייה שנקלטת אוטומטית לענן.</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3.5 bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md">
             <div class="w-9 h-9 rounded-lg bg-amber-950/80 text-amber-400 border border-amber-800/60 flex items-center justify-center font-bold shrink-0">3</div>
             <div>
-              <h3 class="font-bold text-white text-sm sm:text-base">אישור עורך בלחיצת כפתור (Editor Moderation Queue)</h3>
-              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">שום היגד של גולש לא עולה לאוויר לפני שעורך ב"ערב ערב" מאשר אותו בקליק מתוך פאנל הניהול.</p>
+              <h3 class="font-bold text-white text-sm sm:text-base">שאלון דו-רובדי ("היגדי ברזל" + קהילה) ושליטת עורך מלאה באדמין</h3>
+              <p class="text-xs sm:text-sm text-slate-300 mt-0.5">8 היגדי ברזל שנקבעו מראש מבטיחים שאלון עוגן יציב ומדגם תקף. העורך משוחרר מנטל אישורים שוטף, ונהנה מסרגל ניהול פשוט (אושרו/לא אושרו) עם שליטה עליונה למחיקת היגד בלחיצה אחת בכל עת.</p>
             </div>
           </div>
         </div>
@@ -619,25 +622,25 @@
         <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-md space-y-2">
           <div class="text-xs font-extrabold text-sky-700 bg-sky-50 inline-block px-2.5 py-1 rounded">יום חמישי (יום פרסום העיתון)</div>
           <h3 class="font-bold text-white text-base">1. פתיחת הסקר השבועי</h3>
-          <p class="text-xs sm:text-sm text-slate-300">עם צאת הגיליון לאור ביום חמישי, נפתח הסקר החדש באתר (ומצורף קוד QR בגיליון המודפס) עם 6–8 היגדי פתיחה מאוזנים.</p>
+          <p class="text-xs sm:text-sm text-slate-300">עם צאת הגיליון לאור, נפתח הסקר החדש באתר (ומצורף קוד QR בגיליון המודפס) עם 8 היגדי "ברזל" מובנים המבטיחים מדגם השוואתי מדויק בין שכונות, עסקים ותיירות.</p>
         </div>
 
         <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-md space-y-2">
           <div class="text-xs font-extrabold text-amber-700 bg-amber-50 inline-block px-2.5 py-1 rounded">חמישי עד שלישי ב-17:00</div>
-          <h3 class="font-bold text-white text-base">2. הצבעת תושבים וסגירת הסקר</h3>
-          <p class="text-xs sm:text-sm text-slate-300">הקוראים מצביעים ומציעים פתרונות לאורך סוף השבוע ותחילת השבוע (ה-AI מסנן לשון הרע). הסקר נסגר רשמית ביום ג' בשעה 17:00.</p>
+          <h3 class="font-bold text-white text-base">2. הצבעת תושבים וקליטת רעיונות הקהילה (AI)</h3>
+          <p class="text-xs sm:text-sm text-slate-300">הקוראים מצביעים על היגדי הברזל ומציעים רעיונות משלהם. ה-AI מסנן לשון הרע, מונע כפילויות ומאשר אוטומטית לענן — באפס עומס עבודה על העורכים! הסקר נסגר רשמית ביום ג' ב-17:00.</p>
         </div>
 
         <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-md space-y-2">
           <div class="text-xs font-extrabold text-emerald-700 bg-emerald-50 inline-block px-2.5 py-1 rounded">יום רביעי (הכנה והורדה לדפוס)</div>
-          <h3 class="font-bold text-white text-base">3. הכנת כתבה והעברה לדפוס</h3>
-          <p class="text-xs sm:text-sm text-slate-300">המערכת מפיקה אוטומטית את מפת הקונצנזוס, 3 הצהרות הגשר המובילות וטיוטת הכתבה, לשילוב תגובת העירייה והעברה לדפוס ביום רביעי.</p>
+          <h3 class="font-bold text-white text-base">3. הפקת כתבת תוצאות אוטומטית</h3>
+          <p class="text-xs sm:text-sm text-slate-300">המערכת מפיקה בלחיצה אחת את מפת הקונצנזוס, 3 הצהרות הגשר המובילות וטיוטת כתבה עיתונאית מלאה — לשילוב תגובת העירייה והורדה לדפוס ביום רביעי.</p>
         </div>
 
         <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-md space-y-2">
           <div class="text-xs font-extrabold text-purple-700 bg-purple-50 inline-block px-2.5 py-1 rounded">יום חמישי העוקב</div>
           <h3 class="font-bold text-white text-base">4. פרסום הממצאים והזנקת הסקר הבא</h3>
-          <p class="text-xs sm:text-sm text-slate-300">פרסום כתבת התוצאות בגיליון יום חמישי של "ערב ערב באילת" ובאתר, ובמקביל פתיחת המשאל העירוני בנושא הבא.</p>
+          <p class="text-xs sm:text-sm text-slate-300">פרסום כתבת התוצאות והגרפים הבלעדיים בגיליון המודפס של "ערב ערב באילת" ובאתר yomyom.net, ובמקביל הזנקת משאל הקונצנזוס הבא.</p>
         </div>
       </div>
     </div>
@@ -921,7 +924,7 @@
             </div>
             <h3 class="text-xl font-extrabold text-white">ווידג'ט המשתמש (משאל החניה באילת)</h3>
             <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              תצוגת הווידג'ט המוטמעת (Dark Mode) בנושא מצוקת החניה והחונים לסיני — בדיוק כפי שתופיע לקוראי "ערב ערב" בתוך הכתבה בנייד ובמחשב.
+              תצוגת הווידג'ט המוטמעת עם מיתוג מרכזי מובלט של "יום יום באילת", עלייה מיידית ב-0 מילישניות (Cache-First), גלילה חלקה לראש העמוד ומודל דו-רובדי (היגדי ברזל + הצעות קהילה).
             </p>
           </div>
           <div class="space-y-2.5 pt-2">
@@ -942,18 +945,18 @@
               <span class="text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30 px-2.5 py-1 rounded-md">מערכת מלאה וניהול עורכים</span>
               <span class="text-xl">🧭</span>
             </div>
-            <h3 class="text-xl font-extrabold text-white">אתר האפליקציה וממשק הניהול</h3>
+            <h3 class="text-xl font-extrabold text-white">ממשק הניהול והאדמין (Admin)</h3>
             <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              הפלטפורמה המלאה הכוללת את זירות הדיון העירוניות, דשבורד ניתוח הקונצנזוס והצהרות הגשר, אישור היגדים והפקת כתבת הסיכום ליום רביעי.
+              ממשק ניהול משוחרר מבירוקרטיית אישורים: קליטה אוטומטית לענן (Supabase), סרגל סטטוס פשוט של היגדים (אושרו/לא אושרו), מעקב עלויות AI, שליטה עליונה והפקת דוח כתבה מוכן לדפוס.
             </p>
           </div>
           <div class="space-y-2.5 pt-2">
-            <a href="https://consensus-civic-platform.vercel.app/?from=pitch" target="_blank" rel="noopener noreferrer" class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-sky-600/25 transition flex items-center justify-center gap-2">
-              <span>🚀 כניסה לאתר האפליקציה וניהול</span>
+            <a href="https://consensus-civic-platform.vercel.app/?tab=admin&from=pitch" target="_blank" rel="noopener noreferrer" class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-sky-600/25 transition flex items-center justify-center gap-2">
+              <span>🔐 כניסה לממשק הניהול (Admin)</span>
               <span>↗</span>
             </a>
-            <button type="button" data-embed-url="https://consensus-civic-platform.vercel.app/?from=pitch" data-embed-title="תצוגה מוטמעת חיה: אתר האפליקציה וממשק הניהול" class="preview-iframe-btn w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition">
-              🖥️ הצגת האפליקציה המלאה בתוך עמוד זה (Iframe)
+            <button type="button" data-embed-url="https://consensus-civic-platform.vercel.app/?tab=admin&from=pitch" data-embed-title="תצוגה מוטמעת חיה: ממשק הניהול והאדמין לעורכים" class="preview-iframe-btn w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition">
+              🖥️ הצגת ממשק הניהול בתוך עמוד זה (Iframe)
             </button>
           </div>
         </div>
@@ -1243,7 +1246,13 @@
         var text = rawText.trim();
         if (!text) return;
 
-        if (text.indexOf("מושחתים") !== -1 || text.indexOf("מקורב") !== -1) {
+        if (text.indexOf("שדה התעופה") !== -1 || text.indexOf("חנה וסע") !== -1 || text.indexOf("שאטל") !== -1) {
+          resultBox.className = "bg-slate-900/90 border border-sky-500/50 rounded-xl p-5 space-y-4";
+          statusTitle.textContent = "🔄 זוהתה כפילות (Deduplication): רעיון זהה כבר קיים במשאל!";
+          statusTitle.parentElement.className = "flex items-center gap-2 text-sky-400 font-bold text-sm";
+          reasonEl.textContent = "מנוע ה-AI זיהה שההצעה שלך על 'חניון חנה וסע בשטח שדה התעופה עם שאטל' כבר קיימת כהיגד ברזל #1 של המערכת. במקום לפצל את קולות התושבים ולהעמיס היגדים כפולים, המערכת מפנה את הקורא להצביע ישירות על ההיגד המקורי:";
+          reframedEl.textContent = "\"הקמת חניון 'חנה וסע' מוסדר בתשלום לנופשים לסיני בשטח שדה התעופה הישן עם שאטל ישיר למעבר טאבה (היגד ברזל #1)\"";
+        } else if (text.indexOf("מושחתים") !== -1 || text.indexOf("מקורב") !== -1) {
           resultBox.className = "bg-slate-900/90 border border-rose-500/50 rounded-xl p-5 space-y-4";
           statusTitle.textContent = "נחסם אוטומטית: חשש ללשון הרע והאשמה ללא אסמכתא";
           statusTitle.parentElement.className = "flex items-center gap-2 text-rose-400 font-bold text-sm";
@@ -1253,13 +1262,13 @@
           resultBox.className = "bg-slate-900/90 border border-amber-500/40 rounded-xl p-5 space-y-4";
           statusTitle.textContent = "זוהתה שפה מתלהמת / קריאה לפגיעה ברכוש — הוצע ניסוח מגשר";
           statusTitle.parentElement.className = "flex items-center gap-2 text-amber-400 font-bold text-sm";
-          reasonEl.textContent = "המערכת חסמה ביטויים כגון 'לפנצ'ר' ו'חוצפנים', והמירה את התסכול המוצדק של תושבי השכונות להצעת מדיניות קונקרטית שניתן להצביע עליה:";
+          reasonEl.textContent = "המערכת חסמה ביטויים כגון 'לפנצ'ר' ו'חוצפנים', והמירה את התסכול המוצדק של תושבי השכונות להצעת מדיניות קונקרטית שנקלטת אוטומטית לענן:";
           reframedEl.textContent = "\"יש לאסור חניית רכבים ללא תו תושב אילתי בשכונות המגורים מעל 24 שעות בתקופות שיא, ולהפעיל גרירה לחניון מוסדר.\"";
         } else {
           resultBox.className = "bg-slate-900/90 border border-emerald-500/40 rounded-xl p-5 space-y-4";
-          statusTitle.textContent = "✓ ההיגד תקין, ענייני ונקי מלשון הרע";
+          statusTitle.textContent = "✓ ההיגד תקין, ענייני, ייחודי ונקי מלשון הרע";
           statusTitle.parentElement.className = "flex items-center gap-2 text-emerald-400 font-bold text-sm";
-          reasonEl.textContent = "לא זוהו שמות פרטיים, קללות או השמצות. ההיגד מנוסח כהצעה ברורה שיכולה לעלות להצבעת הקוראים:";
+          reasonEl.textContent = "לא זוהו שמות פרטיים, קללות, השמצות או כפילויות. ההיגד נבדק ומאושר אוטומטית לקליטה ישירה לסקר הקהילה בענן:";
           reframedEl.textContent = "\"" + text + "\"";
         }
       }
