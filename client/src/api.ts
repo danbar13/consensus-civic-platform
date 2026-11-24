@@ -109,6 +109,7 @@ export async function submitVote(data: {
   session_id: string;
   group_id: string;
   vote: number;
+  device_fingerprint?: string;
 }): Promise<{
   success: boolean;
   statementId: number;
@@ -148,7 +149,17 @@ export async function submitStatement(topicId: string, data: {
   text: string;
   author_group: string;
   session_id: string;
-}): Promise<{ statement: Statement; moderation: ModerationResult }> {
+  device_fingerprint?: string;
+  user_confirmed_reframing?: boolean;
+}): Promise<{ 
+  statement: Statement | null; 
+  moderation: ModerationResult; 
+  isDuplicate?: boolean; 
+  needsConfirmation?: boolean;
+  matchedStatement?: Statement | null;
+  mode?: string;
+  initialStatus?: string;
+}> {
   const res = await fetch(`${API_BASE}/topics/${topicId}/statements`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -162,7 +173,7 @@ export async function submitStatement(topicId: string, data: {
 }
 
 export async function updateStatement(id: number, data: {
-  status?: 'approved' | 'rejected' | 'pending';
+  status?: 'approved' | 'rejected' | 'pending' | 'pending_approval' | 'scheduled_auto';
   text?: string;
 }): Promise<Statement> {
   const res = await fetch(`${API_BASE}/statements/${id}`, {
@@ -174,6 +185,20 @@ export async function updateStatement(id: number, data: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to update statement');
+  }
+  return res.json();
+}
+
+export async function batchApproveStatements(ids: number[]): Promise<{ success: boolean; count: number; updated: Statement[] }> {
+  const res = await fetch(`${API_BASE}/statements/batch-approve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ ids })
+  });
+  checkAuthResponse(res);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to batch approve statements');
   }
   return res.json();
 }
@@ -199,6 +224,8 @@ export async function createTopic(data: {
   category: string;
   groups: { id: string; label: string; color: string }[];
   initialStatements: string[];
+  moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
+  submissions_close_at?: string | null;
   closes_at?: string | null;
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics`, {
@@ -220,6 +247,8 @@ export async function updateTopic(id: string, data: {
   organization?: string;
   category?: string;
   groups?: { id: string; label: string; color: string }[];
+  moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
+  submissions_close_at?: string | null;
   closes_at?: string | null;
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics/${id}`, {

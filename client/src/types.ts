@@ -13,7 +13,9 @@ export interface Topic {
   category: 'municipal' | 'mediation' | 'committee' | 'consulting';
   groups_json: string;
   groups: StakeholderGroup[];
+  moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
   created_at: string;
+  submissions_close_at?: string | null;
   closes_at?: string | null;
   stats?: {
     statementsCount: number;
@@ -28,7 +30,11 @@ export interface Statement {
   text: string;
   author_group: string;
   is_seed: boolean | number;
-  status: 'approved' | 'pending' | 'rejected';
+  is_anchor?: boolean;
+  status: 'approved' | 'pending' | 'pending_approval' | 'rejected' | 'scheduled_auto';
+  auto_publish_at?: string | null;
+  session_id?: string | null;
+  device_fingerprint?: string | null;
   created_at: string;
   votesSummary?: {
     total: number;
@@ -71,6 +77,8 @@ export interface ModerationResult {
   isRant?: boolean;
   isDuplicate?: boolean;
   similarStatement?: string | null;
+  matchedStatement?: Statement | null;
+  needsConfirmation?: boolean;
   reason?: string;
   suggestion?: string;
 }

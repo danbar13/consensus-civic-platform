@@ -25,7 +25,8 @@ import {
   cloudDeleteStatement,
   cloudRecordVote, 
   cloudGetVotesForTopic,
-  cloudGetUserVotes
+  cloudGetUserVotes,
+  cloudCountUserSubmissions
 } from './supabaseDb.js';
 import { statementRateLimiter, voteRateLimiter, adminLoginRateLimiter, generalApiRateLimiter } from './rateLimiter.js';
 import { generateAdminToken, verifyAdminToken } from './auth.js';
@@ -153,7 +154,7 @@ app.get('/api/topics/:id', async (req, res) => {
 // Create new topic
 app.post('/api/topics', requireAdminAuth, async (req, res) => {
   try {
-    const { id, title, subtitle, organization, category, groups, initialStatements, closes_at } = req.body;
+    const { id, title, subtitle, organization, category, groups, initialStatements, moderation_mode, submissions_close_at, closes_at } = req.body;
     
     if (!title || !organization || !groups || groups.length === 0) {
       return res.status(400).json({ error: 'Missing required topic fields' });
@@ -172,6 +173,7 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
 
     const topicId = id || (title.replace(/\s+/g, '-').slice(0, 30) + '-' + Date.now().toString(36));
     const now = new Date().toISOString();
+    const defaultSubmissionsClose = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
 
     const created = await cloudCreateTopic({
       id: topicId,
@@ -180,7 +182,9 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
       organization,
       category: category || 'municipal',
       groups,
+      moderation_mode: moderation_mode || 'batch_approval',
       created_at: now,
+      submissions_close_at: submissions_close_at || defaultSubmissionsClose,
       closes_at: closes_at || null
     });
 
@@ -205,22 +209,29 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
   }
 });
 
-// Update topic (ALLOWED ONLY IF NO VOTES/RESPONSES YET)
+// Update topic (operational settings like moderation_mode, submissions_close_at and closes_at are always editable)
 app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
   try {
     const topicId = req.params.id;
     const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
-    // Check if topic already has votes/responses
-    const votesCount = await cloudGetTopicVotesCount(topicId);
-    if (votesCount > 0) {
-      return res.status(400).json({ 
-        error: `לא ניתן לערוך זירת דיון שכבר נרשמו בה תגובות או הצבעות מן הציבור (קיימות ${votesCount} הצבעות פעילות).` 
-      });
+    const { title, subtitle, organization, category, groups, moderation_mode, submissions_close_at, closes_at } = req.body;
+
+    // Check if structural fields are being changed when topic already has votes
+    const structuralChangeRequested = (title && title !== topic.title) || 
+      (category && category !== topic.category) || 
+      (groups && JSON.stringify(groups) !== JSON.stringify(topic.groups));
+
+    if (structuralChangeRequested) {
+      const votesCount = await cloudGetTopicVotesCount(topicId);
+      if (votesCount > 0) {
+        return res.status(400).json({ 
+          error: `לא ניתן לשנות כותרת, קטגוריה או קבוצות בזירת דיון שכבר נרשמו בה הצבעות (${votesCount} הצבעות פעילות). ניתן לעדכן מועדי סגירה ומצב סינון.` 
+        });
+      }
     }
 
-    const { title, subtitle, organization, category, groups, closes_at } = req.body;
     const updated = await cloudUpdateTopic({
       id: topicId,
       title,
@@ -228,6 +239,8 @@ app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
       organization,
       category,
       groups,
+      moderation_mode,
+      submissions_close_at,
       closes_at
     });
 
@@ -274,10 +287,10 @@ app.get('/api/topics/:id/statements', async (req, res) => {
   }
 });
 
-// Submit a new statement (protected with rate limiter)
+// Submit a new statement (protected with rate limiter and smart AI funnel)
 app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) => {
   try {
-    const { text, author_group, session_id } = req.body;
+    const { text, author_group, session_id, device_fingerprint, user_confirmed_reframing } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'Statement text is required' });
     }
@@ -290,13 +303,32 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
     const topic = await cloudGetTopic(req.params.id);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
+    // Check full poll closing date
     if (topic.closes_at && new Date(topic.closes_at) < new Date()) {
       return res.status(403).json({ error: 'המשאל נסגר להגשת היגדים נוספים.', isClosed: true });
     }
 
-    // Fetch existing statements for this topic to check semantic similarity & deduplication
-    const existing = await cloudGetStatements(req.params.id, 'approved');
-    const existingTexts = (existing || []).map(s => s.text);
+    // Requirement 5: Check 48-hour submissions window
+    if (topic.submissions_close_at && new Date(topic.submissions_close_at) < new Date()) {
+      return res.status(403).json({ 
+        error: 'שלב הוספת ההצעות הסתיים — כעת מצביעים על המאגר הסופי לקראת סגירת הגיליון.', 
+        isSubmissionsClosed: true 
+      });
+    }
+
+    // Requirement 4: Limit 2 proposals per user / device
+    const userSubmissionsCount = await cloudCountUserSubmissions(topic.id, session_id, device_fingerprint);
+    if (userSubmissionsCount >= 2) {
+      return res.status(403).json({
+        error: 'הגעת למגבלת 2 ההצעות המותרות למשתמש במשאל זה. תודה על מעורבותך האזרחית!',
+        limitReached: true
+      });
+    }
+
+    // Fetch existing statements to check semantic similarity & deduplication
+    const existing = await cloudGetStatements(req.params.id, 'all');
+    const existingApproved = (existing || []).filter(s => s.status !== 'rejected');
+    const existingTexts = existingApproved.map(s => s.text);
 
     const moderation = await moderateStatement({
       text: trimmed,
@@ -305,17 +337,41 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
       existingStatements: existingTexts
     });
 
-    // If identified as duplicate / highly similar to an existing statement
+    // Requirement 2: Active deduplication facing the voter
+    // If AI detects that voter's idea is similar to an existing statement, do NOT save a new statement and do NOT send to editor!
     if (moderation.isDuplicate) {
+      // Find matching statement to prompt immediate vote
+      let matchedStatement = null;
+      if (moderation.similarStatement) {
+        matchedStatement = existingApproved.find(s => 
+          s.text === moderation.similarStatement || 
+          s.text.includes(moderation.similarStatement) || 
+          moderation.similarStatement.includes(s.text)
+        ) || null;
+      }
+
       return res.status(200).json({
         statement: null,
         moderation,
-        isDuplicate: true
+        isDuplicate: true,
+        matchedStatement
       });
     }
 
-    // If failed guardrails (toxic / rant / PII / gibberish)
-    if (!moderation.passed) {
+    // Requirement 2: Reframing with voter approval
+    // If ranting but contains legitimate idea and user hasn't approved the constructive reframing yet:
+    if (moderation.isRant && moderation.suggestion && !user_confirmed_reframing) {
+      return res.status(200).json({
+        statement: null,
+        moderation,
+        needsConfirmation: true
+      });
+    }
+
+    // Requirement 2: Immediate noise/toxicity blocking
+    // If failed guardrails (curses / defamation / PII / gibberish) and not a constructive suggestion:
+    // Blocked directly at the voter level — do NOT send to editor queue!
+    if (!moderation.passed && !user_confirmed_reframing) {
       return res.status(200).json({
         statement: null,
         moderation,
@@ -323,20 +379,46 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
       });
     }
 
-    const now = new Date().toISOString();
-    // Unique non-duplicate citizen suggestions approved by AI join the dynamic tier (is_seed: false)
+    // Use confirmed reframed text if voter clicked approval button
+    const finalText = (user_confirmed_reframing && moderation.suggestion) 
+      ? moderation.suggestion.trim() 
+      : trimmed;
+
+    // Requirement 3: 3 flexible publishing modes for the editor
+    // 1. batch_approval (Default): pending_approval
+    // 2. auto_publish (Auto-publish with veto): scheduled_auto + 3-hour timer
+    // 3. instant_publish: approved
+    const mode = topic.moderation_mode || 'batch_approval';
+    const now = new Date();
+    let initialStatus = 'pending_approval';
+    let autoPublishAt = null;
+
+    if (mode === 'instant_publish') {
+      initialStatus = 'approved';
+    } else if (mode === 'auto_publish') {
+      initialStatus = 'scheduled_auto';
+      autoPublishAt = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(); // 3 hours timer
+    } else {
+      initialStatus = 'pending_approval';
+    }
+
     const newStatement = await cloudCreateStatement({
       topic_id: topic.id,
-      text: trimmed,
+      text: finalText,
       author_group: author_group || 'general',
       is_seed: false,
-      status: 'approved',
-      created_at: now
+      status: initialStatus,
+      auto_publish_at: autoPublishAt,
+      session_id: session_id || null,
+      device_fingerprint: device_fingerprint || null,
+      created_at: now.toISOString()
     });
 
     res.status(201).json({
       statement: newStatement,
-      moderation
+      moderation,
+      mode,
+      initialStatus
     });
   } catch (err) {
     console.error('Error adding statement:', err);
@@ -344,7 +426,7 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
   }
 });
 
-// Update statement (status: 'approved' | 'rejected' | 'pending', or text edit)
+// Update statement (status: 'approved' | 'rejected' | 'pending' | 'pending_approval', or text edit)
 app.patch('/api/statements/:id', requireAdminAuth, async (req, res) => {
   try {
     const { status, text } = req.body;
@@ -359,6 +441,27 @@ app.patch('/api/statements/:id', requireAdminAuth, async (req, res) => {
   } catch (err) {
     console.error('Error updating statement:', err);
     res.status(500).json({ error: 'Failed to update statement' });
+  }
+});
+
+// Batch approve statements (Requirement 3: 1-Click Batch Approval)
+app.post('/api/statements/batch-approve', requireAdminAuth, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    const updated = [];
+    for (const id of ids) {
+      const up = await cloudUpdateStatement({ id, status: 'approved' });
+      if (up) updated.push(up);
+    }
+
+    res.json({ success: true, count: updated.length, updated });
+  } catch (err) {
+    console.error('Error batch approving statements:', err);
+    res.status(500).json({ error: 'Failed to batch approve statements' });
   }
 });
 
@@ -377,10 +480,10 @@ app.delete('/api/statements/:id', requireAdminAuth, async (req, res) => {
 // VOTING ENDPOINTS
 // -------------------------------------------------------------
 
-// Record or change a vote (Protected by rate limiter)
+// Record or change a vote (Protected by rate limiter & Anti-Spam device fingerprinting)
 app.post('/api/votes', voteRateLimiter, async (req, res) => {
   try {
-    const { topic_id, statement_id, session_id, group_id, vote } = req.body;
+    const { topic_id, statement_id, session_id, group_id, vote, device_fingerprint } = req.body;
 
     if (!topic_id || !statement_id || !session_id || vote === undefined) {
       return res.status(400).json({ error: 'Missing vote parameters' });
@@ -401,7 +504,8 @@ app.post('/api/votes', voteRateLimiter, async (req, res) => {
       statement_id: Number(statement_id),
       session_id,
       group_id: group_id || 'residents',
-      vote: voteVal
+      vote: voteVal,
+      device_fingerprint
     });
 
     res.json(result);

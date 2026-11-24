@@ -119,7 +119,9 @@ export function initDatabase() {
       organization TEXT NOT NULL,
       category TEXT NOT NULL,
       groups_json TEXT NOT NULL,
+      moderation_mode TEXT NOT NULL DEFAULT 'batch_approval',
       created_at TEXT NOT NULL,
+      submissions_close_at TEXT,
       closes_at TEXT
     );
 
@@ -130,6 +132,9 @@ export function initDatabase() {
       author_group TEXT,
       is_seed INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'approved',
+      auto_publish_at TEXT,
+      session_id TEXT,
+      device_fingerprint TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
     );
@@ -141,6 +146,7 @@ export function initDatabase() {
       session_id TEXT NOT NULL,
       group_id TEXT NOT NULL,
       vote INTEGER NOT NULL,
+      device_fingerprint TEXT,
       created_at TEXT NOT NULL,
       UNIQUE(statement_id, session_id),
       FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
@@ -165,18 +171,70 @@ export function initDatabase() {
   // Migrate closes_at column if not existing
   try {
     db.exec('ALTER TABLE topics ADD COLUMN closes_at TEXT;');
-  } catch (err) {
-    // column already exists
-  }
+  } catch (err) {}
+
+  // Migrate moderation_mode and submissions_close_at on topics
+  try {
+    db.exec("ALTER TABLE topics ADD COLUMN moderation_mode TEXT NOT NULL DEFAULT 'batch_approval';");
+  } catch (err) {}
+  try {
+    db.exec('ALTER TABLE topics ADD COLUMN submissions_close_at TEXT;');
+  } catch (err) {}
+
+  // Migrate statements columns
+  try {
+    db.exec('ALTER TABLE statements ADD COLUMN auto_publish_at TEXT;');
+  } catch (err) {}
+  try {
+    db.exec('ALTER TABLE statements ADD COLUMN session_id TEXT;');
+  } catch (err) {}
+  try {
+    db.exec('ALTER TABLE statements ADD COLUMN device_fingerprint TEXT;');
+  } catch (err) {}
+
+  // Migrate votes columns
+  try {
+    db.exec('ALTER TABLE votes ADD COLUMN device_fingerprint TEXT;');
+  } catch (err) {}
 
   try {
     const defaultCloses = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     db.prepare('UPDATE topics SET closes_at = ? WHERE closes_at IS NULL').run(defaultCloses);
-  } catch (err) {
-    // ignore
-  }
+  } catch (err) {}
+
+  try {
+    const defaultSubmissionsClose = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    db.prepare('UPDATE topics SET submissions_close_at = ? WHERE submissions_close_at IS NULL').run(defaultSubmissionsClose);
+  } catch (err) {}
+
+  // Run auto-publish check for any pending timer completions
+  checkAndPromoteAutoPublish();
 
   seedDataIfEmpty();
+}
+
+/**
+ * Checks for any statements in 'scheduled_auto' status whose 3-hour timer expired and promotes to 'approved'
+ */
+export function checkAndPromoteAutoPublish() {
+  try {
+    const nowIso = new Date().toISOString();
+    const ready = db.prepare(`
+      SELECT id FROM statements 
+      WHERE status = 'scheduled_auto' AND auto_publish_at IS NOT NULL AND auto_publish_at <= ?
+    `).all(nowIso);
+
+    if (ready && ready.length > 0) {
+      db.prepare(`
+        UPDATE statements 
+        SET status = 'approved' 
+        WHERE status = 'scheduled_auto' AND auto_publish_at IS NOT NULL AND auto_publish_at <= ?
+      `).run(nowIso);
+      console.log(`[Auto-Publish] Automatically approved ${ready.length} statements after 3-hour veto window.`);
+    }
+  } catch (err) {
+    // Ignore if table/columns don't exist yet
+  }
 }
 
 function seedDataIfEmpty() {
@@ -188,8 +246,8 @@ function seedDataIfEmpty() {
   console.log('🌱 Seeding initial topics, statements, and votes for Civic Consensus Platform...');
 
   const insertTopic = db.prepare(`
-    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at, closes_at)
-    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @created_at, @closes_at)
+    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, moderation_mode, created_at, submissions_close_at, closes_at)
+    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @moderation_mode, @created_at, @submissions_close_at, @closes_at)
   `);
 
   const insertStatement = db.prepare(`
@@ -220,7 +278,9 @@ function seedDataIfEmpty() {
     organization: 'ערב ערב באילת – המצפן העירוני',
     category: 'municipal',
     groups_json: JSON.stringify(eilatParkingGroups),
+    moderation_mode: 'batch_approval',
     created_at: now,
+    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
     closes_at: defaultClosingDate
   });
 

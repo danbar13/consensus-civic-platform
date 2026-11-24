@@ -1,6 +1,6 @@
 -- =========================================================================
--- קונצנזוס | המצפן האילתי – סכמת נתונים מלאה והרשאות עבור Supabase
--- תואם למסלול החינמי של Supabase (Free Tier - 500MB)
+-- קונצנזוס | המצפן האילתי – סכמת נתונים מלאה, עמודות תפעוליות והרשאות Supabase
+-- מותאם למודל העיתונאי של "ערב ערב באילת" ו-yomyom.net
 -- =========================================================================
 
 -- 1. טבלת זירות דיון (topics)
@@ -12,9 +12,22 @@ CREATE TABLE IF NOT EXISTS public.topics (
   organization TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'municipal',
   groups_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  moderation_mode TEXT NOT NULL DEFAULT 'batch_approval' CHECK (moderation_mode IN ('batch_approval', 'auto_publish', 'instant_publish')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  submissions_close_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now() + interval '48 hours'),
   closes_at TIMESTAMPTZ
 );
+
+-- מיגרציה לעמודות חדשות במידה והטבלה כבר קיימת
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='moderation_mode') THEN
+    ALTER TABLE public.topics ADD COLUMN moderation_mode TEXT NOT NULL DEFAULT 'batch_approval';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='submissions_close_at') THEN
+    ALTER TABLE public.topics ADD COLUMN submissions_close_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now() + interval '48 hours');
+  END IF;
+END $$;
 
 -- 2. טבלת היגדים והצעות פתרון (statements)
 CREATE TABLE IF NOT EXISTS public.statements (
@@ -23,9 +36,26 @@ CREATE TABLE IF NOT EXISTS public.statements (
   text TEXT NOT NULL,
   author_group TEXT NOT NULL DEFAULT 'general',
   is_seed BOOLEAN NOT NULL DEFAULT false,
-  status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending', 'rejected')),
+  status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending_approval', 'pending', 'rejected', 'scheduled_auto')),
+  auto_publish_at TIMESTAMPTZ,
+  session_id TEXT,
+  device_fingerprint TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- מיגרציה לעמודות חדשות בהיגדים
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='statements' AND column_name='auto_publish_at') THEN
+    ALTER TABLE public.statements ADD COLUMN auto_publish_at TIMESTAMPTZ;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='statements' AND column_name='session_id') THEN
+    ALTER TABLE public.statements ADD COLUMN session_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='statements' AND column_name='device_fingerprint') THEN
+    ALTER TABLE public.statements ADD COLUMN device_fingerprint TEXT;
+  END IF;
+END $$;
 
 -- 3. טבלת הצבעות אנונימיות (votes)
 CREATE TABLE IF NOT EXISTS public.votes (
@@ -35,9 +65,18 @@ CREATE TABLE IF NOT EXISTS public.votes (
   session_id TEXT NOT NULL,
   group_id TEXT NOT NULL,
   vote SMALLINT NOT NULL CHECK (vote IN (-1, 0, 1)),
+  device_fingerprint TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
   UNIQUE(statement_id, session_id)
 );
+
+-- מיגרציה לעמודת טביעת אצבע בהצבעות
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='votes' AND column_name='device_fingerprint') THEN
+    ALTER TABLE public.votes ADD COLUMN device_fingerprint TEXT;
+  END IF;
+END $$;
 
 -- 4. טבלת לוגים, מעקב ביצועים ועלויות AI (ai_logs)
 CREATE TABLE IF NOT EXISTS public.ai_logs (
@@ -94,8 +133,11 @@ CREATE POLICY "Allow public all access to votes" ON public.votes FOR ALL USING (
 DROP POLICY IF EXISTS "Allow public all access to ai_logs" ON public.ai_logs;
 CREATE POLICY "Allow public all access to ai_logs" ON public.ai_logs FOR ALL USING (true);
 
--- אינדקסים לביצועים מרביים בעומס גולשים
+-- אינדקסים לביצועים מרביים ומניעת מניפולציות בעומס
 CREATE INDEX IF NOT EXISTS idx_statements_topic_status ON public.statements(topic_id, status);
+CREATE INDEX IF NOT EXISTS idx_statements_auto_publish ON public.statements(auto_publish_at) WHERE status = 'scheduled_auto';
+CREATE INDEX IF NOT EXISTS idx_statements_author_limit ON public.statements(topic_id, session_id);
 CREATE INDEX IF NOT EXISTS idx_votes_topic_statement ON public.votes(topic_id, statement_id);
 CREATE INDEX IF NOT EXISTS idx_votes_session ON public.votes(session_id);
+CREATE INDEX IF NOT EXISTS idx_votes_fingerprint ON public.votes(device_fingerprint);
 CREATE INDEX IF NOT EXISTS idx_ai_logs_created ON public.ai_logs(created_at DESC);

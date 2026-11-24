@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Topic, Statement } from '../types';
-import { submitVote, submitStatement, checkModeration } from '../api';
+import { submitVote, submitStatement } from '../api';
+import { getDeviceFingerprint } from '../session';
 import { 
   ThumbsUp, 
   ThumbsDown, 
@@ -58,15 +59,20 @@ export const VoteView: React.FC<VoteViewProps> = ({
     isRant?: boolean;
     isDuplicate?: boolean;
     similarStatement?: string | null;
+    matchedStatement?: Statement | null;
+    needsConfirmation?: boolean;
     reason?: string;
     suggestion?: string;
   } | null>(null);
   const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
 
-  // Two-tier division: Tier 1 (Iron Core 8 statements) vs Tier 2 (Community Dynamic statements)
+  // Requirement 1: Tier 1 (Exactly 8 Iron Core statements) vs Tier 2 (Up to 7 Community Dynamic statements)
   const approvedStatements = statements.filter(s => s.status === 'approved');
-  const seedStatements = approvedStatements.filter(s => s.is_seed);
-  const communityStatements = approvedStatements.filter(s => !s.is_seed);
+  // 8 Iron Anchor statements
+  const seedStatements = approvedStatements.filter(s => s.is_seed || s.is_anchor).slice(0, 8);
+  // Community statements: up to 7 leading statements
+  const allCommunityStatements = approvedStatements.filter(s => !seedStatements.some(seed => seed.id === s.id));
+  const communityStatements = allCommunityStatements.slice(0, 7);
 
   const unvotedSeed = seedStatements.filter(s => userVotes[s.id] === undefined);
   const unvotedCommunity = communityStatements.filter(s => userVotes[s.id] === undefined);
@@ -87,7 +93,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
     currentStatement = null;
   }
 
-  const seedTotal = seedStatements.length;
+  const seedTotal = seedStatements.length || 8;
   const seedVotedCount = seedStatements.filter(s => userVotes[s.id] !== undefined).length;
   const seedProgressPercent = seedTotal > 0 ? Math.round((seedVotedCount / seedTotal) * 100) : 0;
 
@@ -96,6 +102,10 @@ export const VoteView: React.FC<VoteViewProps> = ({
   const totalVotedCount = seedVotedCount + communityVotedCount;
 
   const isClosed = Boolean(topic.closes_at && new Date(topic.closes_at).getTime() < Date.now());
+  const isSubmissionsClosed = Boolean(
+    isClosed || (topic.submissions_close_at && new Date(topic.submissions_close_at).getTime() < Date.now())
+  );
+  const isGroupLocked = totalVotedCount > 0;
 
   const getClosingDetails = (closesAt?: string | null) => {
     if (!closesAt) return null;
@@ -108,21 +118,23 @@ export const VoteView: React.FC<VoteViewProps> = ({
   };
 
   const closingInfo = getClosingDetails(topic.closes_at);
+  const submissionsClosingInfo = getClosingDetails(topic.submissions_close_at);
 
-  // Handle single vote with instantaneous Optimistic UI (0ms perceived lag)
+  // Handle single vote with instantaneous Optimistic UI (0ms perceived lag) + Anti-Spam device fingerprinting
   const handleVote = (statementId: number, voteVal: number) => {
     if (isClosed) return;
 
     // 1. Immediately advance to next statement or complete state in 0 milliseconds
     onVoteCast(statementId, voteVal);
 
-    // 2. Submit vote to server/cloud asynchronously in background
+    // 2. Submit vote to server/cloud asynchronously in background with device fingerprint
     submitVote({
       topic_id: topic.id,
       statement_id: statementId,
       session_id: sessionId,
       group_id: currentGroup,
-      vote: voteVal
+      vote: voteVal,
+      device_fingerprint: getDeviceFingerprint()
     })
       .then(res => {
         if (res?.microInsight) {
@@ -162,8 +174,8 @@ export const VoteView: React.FC<VoteViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentStatement, currentGroup, isClosed]);
 
-  // Handle submitting a new statement with single-call AI guardrail & deduplication
-  const handleAddStatementSubmit = async (textToSubmit?: string) => {
+  // Handle submitting a new statement with Smart AI Funnel, Reframing & Deduplication
+  const handleAddStatementSubmit = async (textToSubmit?: string, isConfirmedReframing = false) => {
     const targetText = (textToSubmit || newText).trim();
     if (!targetText) return;
 
@@ -172,15 +184,38 @@ export const VoteView: React.FC<VoteViewProps> = ({
     setSubmitSuccessMsg(null);
 
     try {
-      // Single fast round-trip: Server performs rate limit, AI moderation and semantic deduplication
+      // Server performs rate limit, 2-proposal limit, 48h limit, AI moderation, and deduplication
       const res = await submitStatement(topic.id, {
         text: targetText,
         author_group: currentGroup,
-        session_id: sessionId
+        session_id: sessionId,
+        device_fingerprint: getDeviceFingerprint(),
+        user_confirmed_reframing: isConfirmedReframing
       });
 
-      // If duplicate or blocked by moderation
-      if (res.moderation?.isDuplicate || !res.moderation?.passed) {
+      // Requirement 2: Deduplication facing voter
+      if (res.isDuplicate || res.moderation?.isDuplicate) {
+        setModerationFeedback({
+          ...res.moderation,
+          isDuplicate: true,
+          matchedStatement: res.matchedStatement || null
+        });
+        setIsEvaluatingAI(false);
+        return;
+      }
+
+      // Requirement 2: Reframing confirmation
+      if (res.needsConfirmation || (res.moderation?.isRant && res.moderation?.suggestion && !isConfirmedReframing)) {
+        setModerationFeedback({
+          ...res.moderation,
+          needsConfirmation: true
+        });
+        setIsEvaluatingAI(false);
+        return;
+      }
+
+      // Requirement 2: Direct blocking of noise/defamation
+      if (!res.moderation?.passed && !isConfirmedReframing) {
         setModerationFeedback(res.moderation);
         setIsEvaluatingAI(false);
         return;
@@ -190,19 +225,23 @@ export const VoteView: React.FC<VoteViewProps> = ({
         onStatementAdded(res.statement);
         setNewText('');
         setModerationFeedback(null);
-        setSubmitSuccessMsg(
-          res.statement.status === 'approved'
-            ? 'רעיונך נבדק ואושר ע"י ה-AI והתווסף לשלב רעיונות התושבים (שלב 2)! 🎉'
-            : 'הצעתך נקלטה בהצלחה והועברה לשולחן העורכים.'
-        );
+
+        const statusMsg = res.statement.status === 'approved'
+          ? 'רעיונך נבדק ואושר ע"י ה-AI והתווסף לשלב רעיונות התושבים! 🎉'
+          : res.statement.status === 'scheduled_auto'
+          ? 'הצעתך אושרה ע"י ה-AI ונכנסה לפרסום אוטומטי (Auto-Publish) בעוד 3 שעות! ⏱️'
+          : 'הצעתך עברה סינון AI מוקפד והועברה לאישור מהיר של עורך העיתון בקליק אחד (One-Click Approval). תודה!';
+
+        setSubmitSuccessMsg(statusMsg);
       }
 
-      setTimeout(() => setSubmitSuccessMsg(null), 4500);
+      setTimeout(() => setSubmitSuccessMsg(null), 5000);
     } catch (err: any) {
       console.error('Error submitting statement:', err);
-      if (err?.response?.data?.moderation) {
-        setModerationFeedback(err.response.data.moderation);
-      }
+      setModerationFeedback({
+        passed: false,
+        reason: err?.message || 'שגיאה בשליחת ההצעה. נסו שוב.'
+      });
     } finally {
       setIsEvaluatingAI(false);
     }
@@ -305,10 +344,17 @@ export const VoteView: React.FC<VoteViewProps> = ({
               באיזה כובע את/ה מצביע/ה בדיון זה?
             </h2>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 rounded-full text-xs font-semibold self-start sm:self-auto border border-blue-100 dark:border-blue-900/60">
-            <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>ללא צורך בהרשמה</span>
-          </div>
+          {isGroupLocked ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-full text-xs font-semibold self-start sm:self-auto border border-amber-200 dark:border-amber-800">
+              <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>כובע מגזרי נעול (הצבעתך החלה)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 rounded-full text-xs font-semibold self-start sm:self-auto border border-blue-100 dark:border-blue-900/60">
+              <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>ללא צורך בהרשמה</span>
+            </div>
+          )}
         </div>
 
         {/* Group Pill Bar */}
@@ -318,10 +364,19 @@ export const VoteView: React.FC<VoteViewProps> = ({
             return (
               <button
                 key={g.id}
-                onClick={() => onChangeGroup(g.id)}
+                onClick={() => {
+                  if (isGroupLocked && g.id !== currentGroup) {
+                    alert('הכובע המגזרי נעול עבור משאל זה לאחר תחילת ההצבעה, כדי להבטיח את אמינות המדד הסטטיסטי.');
+                    return;
+                  }
+                  onChangeGroup(g.id);
+                }}
+                disabled={isGroupLocked && !isSelected}
                 className={`p-3 rounded-xl border-2 text-right transition-all flex items-center justify-between ${
                   isSelected 
                     ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 shadow-sm ring-2 ring-blue-100 dark:ring-blue-900/50' 
+                    : isGroupLocked 
+                    ? 'border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/30 text-slate-400 opacity-60 cursor-not-allowed'
                     : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                 }`}
               >
@@ -349,21 +404,21 @@ export const VoteView: React.FC<VoteViewProps> = ({
           <div className="flex items-center gap-2 font-bold">
             {!isSeedComplete ? (
               <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 flex items-center gap-1 border border-blue-200 dark:border-blue-800">
-                <span>שלב 1 מתוך 2:</span>
-                <span>8 היגדי הברזל (שאלות חובה לקליטת עמדתך)</span>
+                <span>שאלון ליבה מחייב:</span>
+                <span>היגד {Math.min(seedVotedCount + 1, 8)} מתוך 8 היגדי ברזל</span>
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 flex items-center gap-1 border border-purple-200 dark:border-purple-800">
                 <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                <span>שלב 2: קולות התושבים מהשטח (רשות - ניתן לעצור בכל עת)</span>
+                <span>שלב 2: עד 7 היגדי קהילה מובילים (רשות - ניתן לסיים בכל עת)</span>
               </span>
             )}
           </div>
           <div className="font-semibold text-slate-500 dark:text-slate-400">
             {!isSeedComplete ? (
-              <span>הצבעת על {seedVotedCount} מתוך {seedTotal} היגדים ({seedProgressPercent}%)</span>
+              <span>הצבעת על {seedVotedCount} מתוך {seedTotal} היגדי ליבה ({seedProgressPercent}%)</span>
             ) : (
-              <span>הצבעת על {communityVotedCount} מתוך {communityTotal} רעיונות תושבים</span>
+              <span>הצבעת על {communityVotedCount} מתוך {communityTotal} היגדי קהילה נבחרים</span>
             )}
           </div>
         </div>
@@ -407,15 +462,15 @@ export const VoteView: React.FC<VoteViewProps> = ({
             {isCurrentTierSeed ? (
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 rounded-lg font-black border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
-                  <span>🔒 היגד ברזל #{currentStatement.id}</span>
+                  <span>🔒 היגד {seedVotedCount + 1} מתוך 8 (שאלון ליבה)</span>
                 </span>
-                <span className="text-slate-400 font-medium hidden sm:inline">(שלב 1: שאלת חובה)</span>
+                <span className="text-slate-400 font-medium hidden sm:inline">(כ-60 שניות סה"כ)</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 rounded-lg font-black border border-purple-200 dark:border-purple-800/60 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  <span>קולות השטח #{currentStatement.id}</span>
+                  <span>היגד קהילה {communityVotedCount + 1} מתוך {communityTotal}</span>
                 </span>
                 <span className="text-purple-600 dark:text-purple-400 font-bold hidden sm:inline">(שלב 2: רשות)</span>
               </div>
@@ -654,10 +709,18 @@ export const VoteView: React.FC<VoteViewProps> = ({
           </div>
         </div>
 
-        {isClosed ? (
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-semibold flex items-center gap-2.5">
-            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>המשאל נסגר להצבעות והיגדים נוספים. לא ניתן להגיש הצעות חדשות.</span>
+        {/* Requirement 5: 48-Hour Submission Window check */}
+        {isSubmissionsClosed ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <div className="font-bold text-sm sm:text-base">שלב הוספת ההצעות הסתיים — כעת מצביעים על המאגר הסופי לקראת סגירת הגיליון</div>
+              <div className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                {submissionsClosingInfo?.formatted 
+                  ? `חלון 48 השעות הראשונות נסגר ב-${submissionsClosingInfo.formatted}. כעת מתקיימת הצבעה מרוכזת על כל ההיגדים לקראת ירידת העיתון לדפוס.`
+                  : 'חלון 48 השעות הראשונות להעלאת הצעות תושבים נסגר. כעת מתקיימת הצבעה מרוכזת על כל ההיגדים שהתגבשו לקראת ירידת העיתון לדפוס.'}
+              </div>
+            </div>
           </div>
         ) : (
           <>
@@ -683,70 +746,138 @@ export const VoteView: React.FC<VoteViewProps> = ({
               </div>
             </div>
 
-            {/* Feedback Alert / AI Reframing & Deduplication Card */}
+            {/* Requirement 2: Smart AI Funnel Feedback Alerts */}
             {moderationFeedback && (
-              <div className={`p-4 sm:p-5 rounded-2xl border-2 space-y-3 animate-in fade-in ${
-                moderationFeedback.isDuplicate 
-                  ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-950 dark:text-purple-200' 
-                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200'
-              }`}>
-                <div className="flex items-start gap-2.5">
-                  {moderationFeedback.isDuplicate ? (
-                    <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <div className="text-sm font-black flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      <span>{moderationFeedback.isDuplicate ? 'זיהוי כפילות ודמיון סמנטי (AI)' : 'הצעת המגשר החכם (AI Guardrail)'}</span>
+              <div className="space-y-3">
+                
+                {/* 1. Deduplication: Offer immediate vote on existing statement */}
+                {moderationFeedback.isDuplicate && (
+                  <div className="p-4 sm:p-5 rounded-2xl border-2 bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-950 dark:text-purple-200 space-y-3 animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-sm sm:text-base font-black flex items-center gap-1.5">
+                          <span>הצעה דומה כבר קיימת במשאל — הצבע עליה כדי לחזק אותה!</span>
+                        </div>
+                        <p className="text-xs sm:text-sm mt-1 leading-relaxed opacity-90">
+                          {moderationFeedback.reason || 'המערכת זיהתה רעיון דומה שכבר קיים במשאל. אין צורך לפתוח היגד כפול — הצבעתך תשפיע ישירות על ההיגד הקיים:'}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs sm:text-sm mt-1 leading-relaxed opacity-90">
-                      {moderationFeedback.reason}
+
+                    {(moderationFeedback.matchedStatement || moderationFeedback.similarStatement) && (
+                      <div className="bg-white/95 dark:bg-slate-900/95 p-4 rounded-xl border border-purple-200 dark:border-purple-800 space-y-3 shadow-xs">
+                        <div className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                          ההיגד הקיים במשאל:
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug">
+                          "{moderationFeedback.matchedStatement?.text || moderationFeedback.similarStatement}"
+                        </div>
+                        <div className="pt-1 flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-500">הצבע/י עליו עכשיו:</span>
+                          {moderationFeedback.matchedStatement && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleVote(moderationFeedback.matchedStatement!.id, 1);
+                                  setModerationFeedback(null);
+                                  setNewText('');
+                                  setSubmitSuccessMsg('הצבעתך בעד ההיגד הקיים נקלטה בהצלחה! ✓');
+                                }}
+                                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                <span>מסכים</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleVote(moderationFeedback.matchedStatement!.id, -1);
+                                  setModerationFeedback(null);
+                                  setNewText('');
+                                  setSubmitSuccessMsg('הצבעתך נגד ההיגד הקיים נקלטה בהצלחה! ✓');
+                                }}
+                                className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                                <span>מתנגד</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleVote(moderationFeedback.matchedStatement!.id, 0);
+                                  setModerationFeedback(null);
+                                  setNewText('');
+                                }}
+                                className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <SkipForward className="w-3.5 h-3.5" />
+                                <span>מדלג</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. Reframing: Constructive suggestion requiring voter confirmation */}
+                {moderationFeedback.suggestion && !moderationFeedback.isDuplicate && (
+                  <div className="p-4 sm:p-5 rounded-2xl border-2 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 space-y-3 animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-sm sm:text-base font-black flex items-center gap-1.5">
+                          <span>ניסוח מגשר ענייני (Smart Reframing)</span>
+                        </div>
+                        <p className="text-xs sm:text-sm mt-1 leading-relaxed opacity-90">
+                          {moderationFeedback.reason || 'המערכת זיהתה רעיון ענייני לצד שפה מתלהמת או פוגענית. לפני שליחה, אנא אשרו את הניסוח המגשר הענייני:'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/90 dark:bg-slate-900/90 p-4 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2.5 shadow-xs">
+                      <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                        הניסוח המוצע להצבעת הציבור:
+                      </div>
+                      <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug">
+                        "{moderationFeedback.suggestion}"
+                      </div>
+                      <div className="pt-2 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleAddStatementSubmit(moderationFeedback.suggestion, true)}
+                          disabled={isEvaluatingAI}
+                          className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>אשר ושלח ניסוח זה לבדיקה ✓</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setNewText(moderationFeedback.suggestion || '');
+                            setModerationFeedback(null);
+                          }}
+                          className="px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition"
+                        >
+                          העתק לתיבה וערוך בעצמי
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Direct blocking of noise/curses/defamation */}
+                {!moderationFeedback.passed && !moderationFeedback.suggestion && !moderationFeedback.isDuplicate && (
+                  <div className="p-4 rounded-2xl border-2 bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-200 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                      <span className="font-bold text-sm">ההצעה נחסמה בהתאם לכללי השיח</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-rose-800 dark:text-rose-300 leading-relaxed pr-7">
+                      {moderationFeedback.reason || 'שפה פוגענית, קללות, השמצות או שמות פרטיים אינן מותרות במשאל. אנא נסח/י את הצעתך מחדש באופן ענייני ומכבד.'}
                     </p>
                   </div>
-                </div>
-
-                {moderationFeedback.similarStatement && (
-                  <div className="bg-white/90 dark:bg-slate-900/90 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 space-y-1.5">
-                    <div className="text-xs font-bold text-purple-700 dark:text-purple-300">
-                      היגד תואם שכבר קיים במערכת:
-                    </div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                      "{moderationFeedback.similarStatement}"
-                    </div>
-                  </div>
                 )}
 
-                {moderationFeedback.suggestion && !moderationFeedback.isDuplicate && (
-                  <div className="bg-white/80 dark:bg-slate-900/90 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
-                    <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                      ניסוח מומלץ שיכול לזכות בהסכמה רחבה יותר מכל הצדדים:
-                    </div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                      "{moderationFeedback.suggestion}"
-                    </div>
-                    <div className="pt-2 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => handleAddStatementSubmit(moderationFeedback.suggestion)}
-                        disabled={isEvaluatingAI}
-                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>אמץ את ניסוח המגשר ושלח עכשיו</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setNewText(moderationFeedback.suggestion || '');
-                          setModerationFeedback(null);
-                        }}
-                        className="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition"
-                      >
-                        העתק לתיבה וערוך בעצמי
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

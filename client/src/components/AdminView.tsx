@@ -6,6 +6,7 @@ import {
   fetchStatements, 
   updateStatement, 
   deleteStatement, 
+  batchApproveStatements,
   createTopic, 
   updateTopic,
   deleteTopic,
@@ -84,7 +85,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
   const [statements, setStatements] = useState<Statement[]>([]);
   const [allStatements, setAllStatements] = useState<Statement[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'approved' | 'rejected'>('approved');
+  const [statusFilter, setStatusFilter] = useState<'approved' | 'rejected' | 'queue'>('approved');
+  const [selectedQueueIds, setSelectedQueueIds] = useState<number[]>([]);
+  const [batchApproving, setBatchApproving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [copiedEmbed, setCopiedEmbed] = useState(false);
@@ -101,6 +104,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newTopicSubtitle, setNewTopicSubtitle] = useState('');
   const [newTopicOrg, setNewTopicOrg] = useState('ערב ערב באילת – המצפן העירוני');
   const [newTopicCategory, setNewTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
+  const [newTopicModerationMode, setNewTopicModerationMode] = useState<'batch_approval' | 'auto_publish' | 'instant_publish'>('batch_approval');
+  const [newTopicSubmissionsCloseAt, setNewTopicSubmissionsCloseAt] = useState<string>('');
   const [newTopicClosesAt, setNewTopicClosesAt] = useState<string>('');
   const [newTopicGroups, setNewTopicGroups] = useState([
     { id: 'group1', label: 'תושבי העיר', color: '#2563eb' },
@@ -114,12 +119,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [creatingTopic, setCreatingTopic] = useState(false);
 
-  // Edit topic modal state (allowed only if 0 votes!)
+  // Edit topic modal state
   const [showEditTopicModal, setShowEditTopicModal] = useState(false);
   const [editTopicTitle, setEditTopicTitle] = useState('');
   const [editTopicSubtitle, setEditTopicSubtitle] = useState('');
   const [editTopicOrg, setEditTopicOrg] = useState('');
   const [editTopicCategory, setEditTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
+  const [editTopicModerationMode, setEditTopicModerationMode] = useState<'batch_approval' | 'auto_publish' | 'instant_publish'>('batch_approval');
+  const [editTopicSubmissionsCloseAt, setEditTopicSubmissionsCloseAt] = useState<string>('');
   const [editTopicClosesAt, setEditTopicClosesAt] = useState<string>('');
   const [editTopicGroups, setEditTopicGroups] = useState<{ id: string; label: string; color: string }[]>([]);
   const [updatingTopic, setUpdatingTopic] = useState(false);
@@ -199,11 +206,46 @@ export const AdminView: React.FC<AdminViewProps> = ({
       setAllStatements(all);
       if (statusFilter === 'approved') {
         setStatements(all.filter(s => s.status === 'approved'));
+      } else if (statusFilter === 'rejected') {
+        setStatements(all.filter(s => s.status === 'rejected'));
       } else {
-        setStatements(all.filter(s => s.status !== 'approved'));
+        setStatements(all.filter(s => s.status === 'pending' || s.status === 'pending_approval' || s.status === 'scheduled_auto'));
       }
     } catch (err) {
       console.error('Error fetching statements:', err);
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedQueueIds.length === 0) return;
+    setBatchApproving(true);
+    try {
+      await batchApproveStatements(selectedQueueIds);
+      setActionSuccess(`אושרו בהצלחה ${selectedQueueIds.length} היגדים! הם פתוחים כעת להצבעת הציבור.`);
+      setSelectedQueueIds([]);
+      loadStatements();
+      onStatementsChanged();
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'שגיאה באישור היגדים בבאץ');
+    } finally {
+      setBatchApproving(false);
+    }
+  };
+
+  const handleUpdateModerationMode = async (mode: 'batch_approval' | 'auto_publish' | 'instant_publish') => {
+    try {
+      const updated = await updateTopic(currentTopic.id, { moderation_mode: mode });
+      onTopicUpdated(updated);
+      const modeNames = {
+        batch_approval: 'אישור עורך בבאץ (ברירת מחדל)',
+        auto_publish: 'טייס אוטומטי מבוקר (Auto-Publish עם זכות וטו של 3 שעות)',
+        instant_publish: 'פרסום מיידי לאחר סינון AI'
+      };
+      setActionSuccess(`מצב הסינון עודכן ל-${modeNames[mode]}`);
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'שגיאה בעדכון מצב סינון');
     }
   };
 
@@ -242,6 +284,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setEditTopicOrg(t.organization);
     setEditTopicCategory(t.category);
     setEditTopicGroups(t.groups || []);
+    setEditTopicModerationMode(t.moderation_mode || 'batch_approval');
+    if (t.submissions_close_at) {
+      const d = new Date(t.submissions_close_at);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setEditTopicSubmissionsCloseAt(d.toISOString().slice(0, 16));
+    } else {
+      setEditTopicSubmissionsCloseAt('');
+    }
     if (t.closes_at) {
       const d = new Date(t.closes_at);
       d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -270,6 +320,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         organization: editTopicOrg.trim(),
         category: editTopicCategory,
         groups: editTopicGroups,
+        moderation_mode: editTopicModerationMode,
+        submissions_close_at: editTopicSubmissionsCloseAt ? new Date(editTopicSubmissionsCloseAt).toISOString() : null,
         closes_at: editTopicClosesAt ? new Date(editTopicClosesAt).toISOString() : null
       });
 
@@ -397,6 +449,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         category: newTopicCategory,
         groups: newTopicGroups,
         initialStatements: selectedStatements,
+        moderation_mode: newTopicModerationMode,
+        submissions_close_at: newTopicSubmissionsCloseAt ? new Date(newTopicSubmissionsCloseAt).toISOString() : null,
         closes_at: newTopicClosesAt ? new Date(newTopicClosesAt).toISOString() : null
       });
 
@@ -404,6 +458,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       setSelectedStatements([]);
       setNewTopicTitle('');
       setNewTopicSubtitle('');
+      setNewTopicSubmissionsCloseAt('');
       setNewTopicClosesAt('');
       onTopicCreated(created);
     } catch (err: any) {
@@ -555,7 +610,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>הכנת כתבה (AI Report) 📰</span>
+            <span>הפקת Editorial Brief לעורך 📰</span>
           </button>
 
           <button
@@ -1084,19 +1139,206 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* TAB 4: STATEMENTS MANAGEMENT */}
-      {adminSubTab === 'moderation' && (
+      {adminSubTab === 'moderation' && (() => {
+        const pendingQueue = allStatements.filter(s => s.status === 'pending_approval' || s.status === 'pending' || s.status === 'scheduled_auto');
+        const approvedCount = allStatements.filter(s => s.status === 'approved').length;
+        const rejectedCount = allStatements.filter(s => s.status === 'rejected').length;
+
+        return (
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        
+        {/* Requirement 3: 3 Flexible Publishing Modes Selector for Editor */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">הגדרת מצב פרסום ובקרת עורך (3 מצבים גמישים):</span>
+              <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">בחר מצב עבודה עבור הצעות תושבים חדשות:</h4>
+            </div>
+            <span className="text-xs px-3 py-1 rounded-full font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 self-start sm:self-auto">
+              מצב פעיל: {(currentTopic.moderation_mode === 'auto_publish' ? '⏱️ טייס אוטומטי (3 שעות)' : currentTopic.moderation_mode === 'instant_publish' ? '⚡ פרסום מיידי' : '🛡️ אישור עורך בבאץ')}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => handleUpdateModerationMode('batch_approval')}
+              className={`p-3.5 rounded-xl border text-right transition flex flex-col justify-between cursor-pointer ${
+                (currentTopic.moderation_mode || 'batch_approval') === 'batch_approval'
+                  ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-2 ring-amber-400/40 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-black text-slate-900 dark:text-white">1. אישור עורך בבאץ' (ברירת מחדל)</span>
+                {(currentTopic.moderation_mode || 'batch_approval') === 'batch_approval' && <CheckCircle className="w-4 h-4 text-amber-600 shrink-0" />}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                היגדים ממתינים בתור לאישור גורף בקליק אחד (Batch Approve). אפס עומס ושליטה מלאה.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleUpdateModerationMode('auto_publish')}
+              className={`p-3.5 rounded-xl border text-right transition flex flex-col justify-between cursor-pointer ${
+                currentTopic.moderation_mode === 'auto_publish'
+                  ? 'border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 ring-2 ring-purple-400/40 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-black text-slate-900 dark:text-white">2. טייס אוטומטי מבוקר (Auto-Publish)</span>
+                {currentTopic.moderation_mode === 'auto_publish' && <CheckCircle className="w-4 h-4 text-purple-600 shrink-0" />}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                טיימר 3 שעות: היגדים שעברו סינון AI מתפרסמים מעצמם אלא אם העורך מטיל וטו ודוחה אותם.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleUpdateModerationMode('instant_publish')}
+              className={`p-3.5 rounded-xl border text-right transition flex flex-col justify-between cursor-pointer ${
+                currentTopic.moderation_mode === 'instant_publish'
+                  ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 ring-2 ring-emerald-400/40 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-black text-slate-900 dark:text-white">3. פרסום מיידי לאחר סינון AI</span>
+                {currentTopic.moderation_mode === 'instant_publish' && <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                מיועד לימי שיא ועומס: עלייה מיידית לאוויר עם אפשרות מחיקה ועריכה עריכתית בכל עת.
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Requirement 3: Dedicated Pending Queue Box & 1-Click Batch Approval */}
+        {pendingQueue.length > 0 && (
+          <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 space-y-4 animate-in fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <span className="p-2 rounded-xl bg-amber-500 text-slate-950 font-bold shrink-0">
+                  <Clock className="w-5 h-5" />
+                </span>
+                <div>
+                  <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>תור הצעות תושבים הממתינות לאישור ({pendingQueue.length})</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-200 dark:bg-amber-950 text-amber-900 dark:text-amber-200 font-bold">One-Click Approval</span>
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    הצעות נקיות שעברו את משפך הסינון החכם של ה-AI ללא לשון הרע וללא כפילויות, מוכנות לאישור העורך
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedQueueIds.length === pendingQueue.length) {
+                      setSelectedQueueIds([]);
+                    } else {
+                      setSelectedQueueIds(pendingQueue.map(s => s.id));
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  {selectedQueueIds.length === pendingQueue.length ? 'בטל בחירת הכל' : 'בחר הכל'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBatchApprove}
+                  disabled={batchApproving || selectedQueueIds.length === 0}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>אשר את כל הנבחרים בלחיצת כפתור ({selectedQueueIds.length}) ✓</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Queue List Items */}
+            <div className="space-y-2.5 max-h-72 overflow-y-auto">
+              {pendingQueue.map(item => {
+                const isSelected = selectedQueueIds.includes(item.id);
+                const autoPublishDate = item.auto_publish_at ? new Date(item.auto_publish_at) : null;
+                const minutesLeft = autoPublishDate ? Math.max(0, Math.round((autoPublishDate.getTime() - Date.now()) / 60000)) : null;
+
+                return (
+                  <div key={item.id} className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSelectedQueueIds(prev => 
+                            prev.includes(item.id) ? prev.filter(x => x !== item.id) : [...prev, item.id]
+                          );
+                        }}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 shrink-0 cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                          "{item.text}"
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-1">
+                          <span>מזהה #{item.id}</span>
+                          {item.status === 'scheduled_auto' && minutesLeft !== null && (
+                            <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md">
+                              <Clock className="w-3 h-3" />
+                              <span>פרסום אוטומטי בעוד {Math.floor(minutesLeft / 60)} ש' ו-{minutesLeft % 60} דק' (זכות וטו פעילה)</span>
+                            </span>
+                          )}
+                          {item.status === 'pending_approval' && (
+                            <span className="text-amber-600 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">ממתין לאישור עורך (One-Click)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(item.id, 'approved')}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="אשר היגד זה בלבד"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>אשר</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(item.id, 'rejected')}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="פסול היגד זה (זכות וטו)"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>פסול (וטו)</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              מאגר ההיגדים בזירה
+              כלל ההיגדים בזירה
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              צפייה בהיגדים שאושרו להצבעת הציבור, עריכת ניסוחים והסרת היגדים לא הולמים
+              צפייה בהיגדים שאושרו להצבעת הציבור, תור הממתינים והיגדים שנפסלו
             </p>
           </div>
 
-          {/* Status Filter: אושרו / לא אושרו */}
+          {/* Status Filter: אושרו / תור ממתין / נדחו */}
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold self-start sm:self-auto">
             <button
               onClick={() => setStatusFilter('approved')}
@@ -1106,9 +1348,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span>אושרו</span>
+              <span>אושרו ופעילים</span>
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
-                {allStatements.filter(s => s.status === 'approved').length}
+                {approvedCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter('queue')}
+              className={`px-3.5 py-1.5 rounded-lg transition flex items-center gap-2 cursor-pointer ${
+                statusFilter === 'queue'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span>תור ממתין לאישור</span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
+                {pendingQueue.length}
               </span>
             </button>
 
@@ -1120,9 +1376,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span>לא אושרו</span>
+              <span>נפסלו</span>
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
-                {allStatements.filter(s => s.status !== 'approved').length}
+                {rejectedCount}
               </span>
             </button>
 
@@ -1248,7 +1504,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
         </div>
       </div>
-      )}
+        );
+      })()}
 
       {/* TAB 5: AI NEWSPAPER REPORT GENERATOR */}
       {adminSubTab === 'report' && (
@@ -1413,6 +1670,98 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+
+                            {/* Publishing & Moderation Mode */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2">
+                <label className="text-xs font-bold text-amber-950 dark:text-amber-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>מדיניות סינון ופרסום היגדי קהילה</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewTopicModerationMode('batch_approval')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      newTopicModerationMode === 'batch_approval'
+                        ? 'bg-white dark:bg-slate-900 border-amber-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">אישור בבאץ' בקליק (מומלץ)</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">עובר תור סינון לאישור העורך</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewTopicModerationMode('auto_publish')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      newTopicModerationMode === 'auto_publish'
+                        ? 'bg-white dark:bg-slate-900 border-amber-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">טייס אוטומטי מבוקר</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">פרסום לאחר 3 שעות ללא וטו</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewTopicModerationMode('instant_publish')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      newTopicModerationMode === 'instant_publish'
+                        ? 'bg-white dark:bg-slate-900 border-amber-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">פרסום מיידי (AI)</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">עלייה לאוויר מיד לאחר סינון</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Submissions Window (48h default) */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span>מועד נעילת הצעות הקהילה (חלון 48 שעות)</span>
+                  </label>
+                  {newTopicSubmissionsCloseAt && (
+                    <button
+                      type="button"
+                      onClick={() => setNewTopicSubmissionsCloseAt('')}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 font-bold hover:underline"
+                    >
+                      ללא נעילה
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="datetime-local"
+                    value={newTopicSubmissionsCloseAt}
+                    onChange={e => setNewTopicSubmissionsCloseAt(e.target.value)}
+                    className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-amber-500 outline-none font-medium"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setHours(d.getHours() + 48);
+                        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                        setNewTopicSubmissionsCloseAt(d.toISOString().slice(0, 16));
+                      }}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      48 שעות
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  לאחר מועד זה, הגולשים יוכלו להצביע בלבד ולא יוכלו להוסיף היגדים חדשים.
+                </p>
               </div>
 
               {/* Closing Date and Time */}
@@ -1772,6 +2121,98 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+
+                            {/* Publishing & Moderation Mode */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-2">
+                <label className="text-xs font-bold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>מדיניות סינון ופרסום היגדי קהילה</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditTopicModerationMode('batch_approval')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      editTopicModerationMode === 'batch_approval'
+                        ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">אישור בבאץ' בקליק (מומלץ)</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">עובר תור סינון לאישור העורך</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditTopicModerationMode('auto_publish')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      editTopicModerationMode === 'auto_publish'
+                        ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">טייס אוטומטי מבוקר</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">פרסום לאחר 3 שעות ללא וטו</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditTopicModerationMode('instant_publish')}
+                    className={`p-2.5 rounded-xl border text-right transition ${
+                      editTopicModerationMode === 'instant_publish'
+                        ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-sm'
+                        : 'bg-white/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">פרסום מיידי (AI)</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">עלייה לאוויר מיד לאחר סינון</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Submissions Window (48h default) */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-blue-500" />
+                    <span>מועד נעילת הצעות הקהילה (חלון 48 שעות)</span>
+                  </label>
+                  {editTopicSubmissionsCloseAt && (
+                    <button
+                      type="button"
+                      onClick={() => setEditTopicSubmissionsCloseAt('')}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 font-bold hover:underline"
+                    >
+                      ללא נעילה
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="datetime-local"
+                    value={editTopicSubmissionsCloseAt}
+                    onChange={e => setEditTopicSubmissionsCloseAt(e.target.value)}
+                    className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:border-blue-500 outline-none font-medium"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setHours(d.getHours() + 48);
+                        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                        setEditTopicSubmissionsCloseAt(d.toISOString().slice(0, 16));
+                      }}
+                      className="px-2.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition whitespace-nowrap"
+                    >
+                      48 שעות
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  לאחר מועד זה, הגולשים יוכלו להצביע בלבד ולא יוכלו להוסיף היגדים חדשים.
+                </p>
               </div>
 
               {/* Closing Date and Time */}

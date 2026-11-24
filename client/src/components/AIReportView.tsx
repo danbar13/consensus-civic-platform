@@ -66,10 +66,10 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                הכנת כתבה עיתונאית בלחיצת כפתור (AI Press Generator)
+                הפקת תשתית נתונים וטיוטת עבודה לעורך (Editorial Brief)
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                הפקת טיוטת כתבה מוכנה לדפוס לגיליון יום חמישי ב"ערב ערב באילת" ולאתר yomyom.net מבוססת ניתוח נתוני ההצבעה החיים
+                תשתית עבודה עיתונאית לגיליון יום חמישי ב"ערב ערב באילת" ולאתר yomyom.net: הצהרות גשר (מעל 75% הסכמה), מוקדי מחלוקת ונתונים נקיים להכנת אינפוגרפיקה לדפוס
               </p>
             </div>
           </div>
@@ -80,7 +80,7 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
             className="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>הפקת כתבה מחדש (AI) ✍️</span>
+            <span>הפקת Editorial Brief מחדש (AI) ✍️</span>
           </button>
         </div>
 
@@ -98,9 +98,9 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
               <Newspaper className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">תבנית כתבת סוף שבוע ("ערב ערב באילת")</div>
+              <div className="text-sm font-black text-slate-900 dark:text-white">תבנית Editorial Brief לעיתון ("ערב ערב באילת" ו-yomyom.net)</div>
               <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                כותרת עיתונאית, ניתוח נתונים, פתרונות הקונצנזוס ו-3 שאלות קשות לעירייה
+                תשתית נתונים, פילוח הסכמות רחבות (מעל 75%), נקודות קיטוב ו-3 שאלות מפתח לתגובת העירייה
               </div>
             </div>
           </button>

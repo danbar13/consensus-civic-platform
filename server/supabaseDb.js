@@ -245,7 +245,9 @@ export async function cloudCreateTopic(topicData) {
           organization: topicData.organization,
           category: topicData.category || 'municipal',
           groups_json: topicData.groups,
+          moderation_mode: topicData.moderation_mode || 'batch_approval',
           created_at: topicData.created_at,
+          submissions_close_at: topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
           closes_at: topicData.closes_at || null
         })
         .select()
@@ -262,8 +264,8 @@ export async function cloudCreateTopic(topicData) {
 
   // SQLite fallback
   const insertTopic = db.prepare(`
-    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, created_at, closes_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, moderation_mode, created_at, submissions_close_at, closes_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   insertTopic.run(
     topicData.id,
@@ -273,7 +275,9 @@ export async function cloudCreateTopic(topicData) {
     topicData.organization,
     topicData.category || 'municipal',
     JSON.stringify(topicData.groups),
+    topicData.moderation_mode || 'batch_approval',
     topicData.created_at,
+    topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
     topicData.closes_at || null
   );
 
@@ -295,7 +299,7 @@ export async function cloudGetTopicVotesCount(topicId) {
   return db.prepare('SELECT COUNT(*) as c FROM votes WHERE topic_id = ?').get(topicId)?.c || 0;
 }
 
-export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, closes_at }) {
+export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, moderation_mode, submissions_close_at, closes_at }) {
   invalidateTopicCache(id);
   if (isSupabaseActive && supabase) {
     try {
@@ -305,6 +309,8 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
       if (organization !== undefined) updateData.organization = organization.trim();
       if (category !== undefined) updateData.category = category;
       if (groups !== undefined) updateData.groups_json = groups;
+      if (moderation_mode !== undefined) updateData.moderation_mode = moderation_mode;
+      if (submissions_close_at !== undefined) updateData.submissions_close_at = submissions_close_at;
       if (closes_at !== undefined) updateData.closes_at = closes_at;
 
       const { data, error } = await supabase
@@ -321,7 +327,8 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
             UPDATE topics 
             SET title = coalesce(?, title), subtitle = coalesce(?, subtitle), 
                 organization = coalesce(?, organization), category = coalesce(?, category), 
-                groups_json = coalesce(?, groups_json), closes_at = coalesce(?, closes_at)
+                groups_json = coalesce(?, groups_json), moderation_mode = coalesce(?, moderation_mode),
+                submissions_close_at = coalesce(?, submissions_close_at), closes_at = coalesce(?, closes_at)
             WHERE id = ?
           `).run(
             title !== undefined ? title.trim() : null,
@@ -329,6 +336,8 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
             organization !== undefined ? organization.trim() : null,
             category !== undefined ? category : null,
             groups !== undefined ? JSON.stringify(groups) : null,
+            moderation_mode !== undefined ? moderation_mode : null,
+            submissions_close_at !== undefined ? submissions_close_at : null,
             closes_at !== undefined ? closes_at : null,
             id
           );
@@ -349,13 +358,15 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
   const newOrg = organization !== undefined ? organization.trim() : topic.organization;
   const newCategory = category !== undefined ? category : topic.category;
   const newGroupsJson = groups !== undefined ? JSON.stringify(groups) : topic.groups_json;
+  const newModerationMode = moderation_mode !== undefined ? moderation_mode : (topic.moderation_mode || 'batch_approval');
+  const newSubmissionsClose = submissions_close_at !== undefined ? submissions_close_at : topic.submissions_close_at;
   const newClosesAt = closes_at !== undefined ? closes_at : topic.closes_at;
 
   db.prepare(`
     UPDATE topics 
-    SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, closes_at = ?
+    SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, moderation_mode = ?, submissions_close_at = ?, closes_at = ?
     WHERE id = ?
-  `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newClosesAt, id);
+  `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newModerationMode, newSubmissionsClose, newClosesAt, id);
 
   const updated = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
   updated.groups = JSON.parse(updated.groups_json);
@@ -393,8 +404,19 @@ export async function cloudDeleteTopic(topicId) {
 // -------------------------------------------------------------
 
 export async function cloudGetStatements(topicId, status) {
+  const nowIso = new Date().toISOString();
+
   if (isSupabaseActive && supabase) {
     try {
+      // Auto-publish any scheduled statements whose timer elapsed
+      try {
+        await supabase
+          .from('statements')
+          .update({ status: 'approved' })
+          .eq('status', 'scheduled_auto')
+          .lte('auto_publish_at', nowIso);
+      } catch {}
+
       let query = supabase.from('statements').select('*').eq('topic_id', topicId);
       if (status && status !== 'all') {
         query = query.eq('status', status);
@@ -407,6 +429,15 @@ export async function cloudGetStatements(topicId, status) {
     }
   }
 
+  // SQLite check for auto-publish promotion
+  try {
+    db.prepare(`
+      UPDATE statements 
+      SET status = 'approved' 
+      WHERE status = 'scheduled_auto' AND auto_publish_at IS NOT NULL AND auto_publish_at <= ?
+    `).run(nowIso);
+  } catch {}
+
   let query = 'SELECT * FROM statements WHERE topic_id = ?';
   const params = [topicId];
   if (status && status !== 'all') {
@@ -415,6 +446,43 @@ export async function cloudGetStatements(topicId, status) {
   }
   query += ' ORDER BY id ASC';
   return db.prepare(query).all(...params);
+}
+
+export async function cloudCountUserSubmissions(topicId, sessionId, deviceFingerprint) {
+  let count = 0;
+  if (isSupabaseActive && supabase) {
+    try {
+      let query = supabase
+        .from('statements')
+        .select('*', { count: 'exact', head: true })
+        .eq('topic_id', topicId);
+      
+      if (sessionId && deviceFingerprint) {
+        query = query.or(`session_id.eq.${sessionId},device_fingerprint.eq.${deviceFingerprint}`);
+      } else if (sessionId) {
+        query = query.eq('session_id', sessionId);
+      } else if (deviceFingerprint) {
+        query = query.eq('device_fingerprint', deviceFingerprint);
+      }
+
+      const { count: c, error } = await query;
+      if (!error && c !== null) return c;
+    } catch {}
+  }
+
+  // SQLite fallback
+  try {
+    const row = db.prepare(`
+      SELECT COUNT(*) as c FROM statements 
+      WHERE topic_id = ? AND (
+        (session_id IS NOT NULL AND session_id = ?) OR 
+        (device_fingerprint IS NOT NULL AND device_fingerprint = ?)
+      )
+    `).get(topicId, sessionId || '', deviceFingerprint || '');
+    return row?.c || 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function cloudCreateStatement(stData) {
@@ -439,6 +507,9 @@ export async function cloudCreateStatement(stData) {
         author_group: stData.author_group || 'general',
         is_seed: Boolean(stData.is_seed),
         status: stData.status || 'approved',
+        auto_publish_at: stData.auto_publish_at || null,
+        session_id: stData.session_id || null,
+        device_fingerprint: stData.device_fingerprint || null,
         created_at: stData.created_at || new Date().toISOString()
       };
 
@@ -452,9 +523,13 @@ export async function cloudCreateStatement(stData) {
         // Also cache to local SQLite
         try {
           db.prepare(`
-            INSERT OR REPLACE INTO statements (id, topic_id, text, author_group, is_seed, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run(data.id, data.topic_id, data.text, data.author_group, data.is_seed ? 1 : 0, data.status, data.created_at);
+            INSERT OR REPLACE INTO statements (id, topic_id, text, author_group, is_seed, status, auto_publish_at, session_id, device_fingerprint, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            data.id, data.topic_id, data.text, data.author_group, 
+            data.is_seed ? 1 : 0, data.status, data.auto_publish_at || null,
+            data.session_id || null, data.device_fingerprint || null, data.created_at
+          );
         } catch {}
         return data;
       }
@@ -467,8 +542,8 @@ export async function cloudCreateStatement(stData) {
   }
 
   const insert = db.prepare(`
-    INSERT INTO statements (topic_id, text, author_group, is_seed, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO statements (topic_id, text, author_group, is_seed, status, auto_publish_at, session_id, device_fingerprint, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = insert.run(
     stData.topic_id,
@@ -476,6 +551,9 @@ export async function cloudCreateStatement(stData) {
     stData.author_group || 'general',
     stData.is_seed ? 1 : 0,
     stData.status || 'approved',
+    stData.auto_publish_at || null,
+    stData.session_id || null,
+    stData.device_fingerprint || null,
     stData.created_at
   );
   return db.prepare('SELECT * FROM statements WHERE id = ?').get(result.lastInsertRowid);
@@ -548,20 +626,34 @@ export async function cloudDeleteStatement(id) {
 // VOTES
 // -------------------------------------------------------------
 
-export async function cloudRecordVote({ topic_id, statement_id, session_id, group_id, vote }) {
+export async function cloudRecordVote({ topic_id, statement_id, session_id, group_id, vote, device_fingerprint }) {
   const now = new Date().toISOString();
+
+  // Sector Locking Check: Fetch user's previous votes in this topic
+  let lockedGroup = group_id || 'residents';
+  try {
+    const existingVote = db.prepare(`
+      SELECT group_id FROM votes 
+      WHERE topic_id = ? AND (session_id = ? OR (device_fingerprint IS NOT NULL AND device_fingerprint = ?))
+      LIMIT 1
+    `).get(topic_id, session_id, device_fingerprint || '');
+    if (existingVote?.group_id) {
+      lockedGroup = existingVote.group_id;
+    }
+  } catch {}
 
   // 1. Immediately write to local SQLite for instant zero-latency caching & robustness
   try {
     const upsertSql = db.prepare(`
-      INSERT INTO votes (topic_id, statement_id, session_id, group_id, vote, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO votes (topic_id, statement_id, session_id, group_id, vote, device_fingerprint, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(statement_id, session_id) DO UPDATE SET
         vote = excluded.vote,
         group_id = excluded.group_id,
+        device_fingerprint = coalesce(excluded.device_fingerprint, votes.device_fingerprint),
         created_at = excluded.created_at
     `);
-    upsertSql.run(topic_id, statement_id, session_id, group_id || 'residents', vote, now);
+    upsertSql.run(topic_id, statement_id, session_id, lockedGroup, vote, device_fingerprint || null, now);
   } catch (sqlErr) {
     console.warn('SQLite vote write notice:', sqlErr.message);
   }
@@ -573,8 +665,9 @@ export async function cloudRecordVote({ topic_id, statement_id, session_id, grou
         topic_id,
         statement_id,
         session_id,
-        group_id: group_id || 'residents',
+        group_id: lockedGroup,
         vote,
+        device_fingerprint: device_fingerprint || null,
         created_at: now
       }, { onConflict: 'statement_id,session_id' });
     } catch (err) {
