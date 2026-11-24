@@ -1546,198 +1546,260 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
 
             {/* Action Cards Grid */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                בחר פעולה במחזור חיי הזירה:
-              </h4>
+            {(() => {
+              const managingLc = getTopicLifecycle(managingTopic);
+              const isAlreadyActive = managingLc.status === 'active';
+              const isAlreadyClosed = managingLc.status === 'closed';
 
-              {/* CARD 1: Publish Now */}
-              <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="p-2 rounded-xl bg-emerald-500 text-white shadow-xs">
-                      <Zap className="w-4 h-4 fill-current" />
-                    </span>
-                    <div>
-                      <h5 className="text-sm font-black text-emerald-950 dark:text-emerald-100">
-                        1. העלאה מיידית לאוויר (פעילה מעכשיו)
-                      </h5>
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300/80 mt-0.5">
-                        פותח את המשאל מיידית להצבעות, מקצה 48 שעות להוספת היגדים, ונועל להצבעות בעוד 5 ימים
-                      </p>
+              return (
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    {isAlreadyActive ? 'סטטוס וניהול זירה פעילה באוויר:' : 'בחר פעולה במחזור חיי הזירה:'}
+                  </h4>
+
+                  {/* CARD 1: Only available when NOT active */}
+                  {isAlreadyActive ? (
+                    <div className="p-4 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-400/50 dark:border-emerald-700/60 space-y-3">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <span className="p-2 rounded-xl bg-emerald-600 text-white shadow-xs">
+                            <Radio className="w-4 h-4 animate-pulse" />
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-sm font-black text-emerald-950 dark:text-emerald-100">
+                                הזירה פעילה באוויר כעת (שידור חי)
+                              </h5>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 animate-pulse">
+                                ● באוויר
+                              </span>
+                            </div>
+                            <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
+                              המשאל פתוח ונגיש להצבעות תושבים. הזירה כבר באוויר ואינה זקוקה להעלאה נוספת.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] pt-1">
+                        <div className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800/80">
+                          <span className="text-slate-500 dark:text-slate-400 block text-[10px]">🚀 עלתה לאוויר:</span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {managingLc.startsAtFormatted || 'מיידית'}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800/80">
+                          <span className="text-amber-700 dark:text-amber-400 block text-[10px]">⏳ נעילת שלב היגדים:</span>
+                          <span className="font-bold text-amber-900 dark:text-amber-200">
+                            {managingLc.submissionsCloseFormatted || 'הסתיים / לא הוגדר'}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800/80">
+                          <span className="text-rose-700 dark:text-rose-400 block text-[10px]">🔒 סגירת המשאל:</span>
+                          <span className="font-bold text-rose-900 dark:text-rose-200">
+                            {managingLc.closesAtFormatted || 'ללא תאריך סגירה'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-2 rounded-xl bg-emerald-500 text-white shadow-xs">
+                            <Zap className="w-4 h-4 fill-current" />
+                          </span>
+                          <div>
+                            <h5 className="text-sm font-black text-emerald-950 dark:text-emerald-100">
+                              1. העלאה מיידית לאוויר (פעילה מעכשיו)
+                            </h5>
+                            <p className="text-xs text-emerald-700 dark:text-emerald-300/80 mt-0.5">
+                              פותח את המשאל מיידית להצבעות, מקצה 48 שעות להוספת היגדים, ונועל להצבעות בעוד 5 ימים
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
-                  <div className="text-[11px] text-emerald-800 dark:text-emerald-200 font-medium">
-                    ⏱️ תאריך ושעה יוגדרו כעת, שלב היגדים: +48 שעות, סגירה סופית: +5 ימים
-                  </div>
-                  <button
-                    onClick={() => handleLaunchNow(managingTopic, 5)}
-                    disabled={isProcessingAction}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>העלה לאוויר עכשיו 🚀</span>
-                  </button>
-                </div>
-              </div>
+                      <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                        <div className="text-[11px] text-emerald-800 dark:text-emerald-200 font-medium">
+                          ⏱️ תאריך ושעה יוגדרו כעת, שלב היגדים: +48 שעות, סגירה סופית: +5 ימים
+                        </div>
+                        <button
+                          onClick={() => handleLaunchNow(managingTopic, 5)}
+                          disabled={isProcessingAction}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>העלה לאוויר עכשיו 🚀</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              {/* CARD 2: Schedule for Future Date */}
-              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/80 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs">
-                    <CalendarClock className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <h5 className="text-sm font-black text-indigo-950 dark:text-indigo-100">
-                      2. קביעת תזמון עתידי (תאריך ושעת עלייה לאוויר)
-                    </h5>
-                    <p className="text-xs text-indigo-700 dark:text-indigo-300/80 mt-0.5">
-                      המערכת תחשב אוטומטית ממועד זה בדיוק 48 שעות לנעילת היגדים ו-5 ימים לסגירת המשאל
-                    </p>
-                  </div>
-                </div>
+                  {/* CARD 2: Schedule for Future Date */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/80 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs">
+                        <CalendarClock className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <h5 className="text-sm font-black text-indigo-950 dark:text-indigo-100">
+                          {isAlreadyActive 
+                            ? '2. שינוי תזמון / מועד סגירת המשאל' 
+                            : (isAlreadyClosed ? '2. פתיחה מחודשת בתזמון עתידי' : '2. קביעת תזמון עתידי (תאריך ושעת עלייה לאוויר)')}
+                        </h5>
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300/80 mt-0.5">
+                          {isAlreadyActive 
+                            ? 'הגדר מועד סגירה חדש או שנה את מועדי שלבי המשאל' 
+                            : 'המערכת תחשב אוטומטית ממועד זה בדיוק 48 שעות לנעילת היגדים ו-5 ימים לסגירת המשאל'}
+                        </p>
+                      </div>
+                    </div>
 
-                {/* Date & Time Picker */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
-                      תאריך ושעה להעלאה לאוויר:
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={scheduleLaunchAt}
-                      onChange={(e) => setScheduleLaunchAt(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 text-xs text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-400 transition"
-                    />
-                  </div>
+                    {/* Date & Time Picker */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
+                          תאריך ושעה להעלאה לאוויר:
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={scheduleLaunchAt}
+                          onChange={(e) => setScheduleLaunchAt(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 text-xs text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-400 transition"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
-                      משך המשאל להצבעות:
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
+                          משך המשאל להצבעות:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setScheduleDurationDays(5)}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                              scheduleDurationDays === 5
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
+                            }`}
+                          >
+                            5 ימים (מומלץ)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setScheduleDurationDays(7)}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                              scheduleDurationDays === 7
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
+                            }`}
+                          >
+                            7 ימים (שבוע)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Calculated Schedule Box */}
+                    {scheduleLaunchAt && (
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5 shadow-2xs">
+                        <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>לוח זמנים מחושב אוטומטית:</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] pt-1">
+                          <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/40">
+                            <span className="text-slate-500 dark:text-slate-400 block text-[10px]">🚀 עלייה לאוויר:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatDateTime(scheduleLaunchAt, true)}
+                            </span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/40">
+                            <span className="text-amber-700 dark:text-amber-400 block text-[10px]">⏳ נעילת היגדים (+48ש):</span>
+                            <span className="font-bold text-amber-900 dark:text-amber-200">
+                              {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + 48 * 60 * 60 * 1000).toISOString(), true)}
+                            </span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/40">
+                            <span className="text-rose-700 dark:text-rose-400 block text-[10px]">🔒 סגירת המשאל (+{scheduleDurationDays}ימים):</span>
+                            <span className="font-bold text-rose-900 dark:text-rose-200">
+                              {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString(), true)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-1">
                       <button
-                        type="button"
-                        onClick={() => setScheduleDurationDays(5)}
-                        className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                          scheduleDurationDays === 5
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
-                        }`}
+                        onClick={() => handleApplySchedule(managingTopic)}
+                        disabled={isProcessingAction || !scheduleLaunchAt}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
-                        5 ימים (מומלץ)
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>שמור תזמון עתידי ⏳</span>
                       </button>
+                    </div>
+                  </div>
+
+                  {/* CARD 3 & 4: Draft vs Unpublish */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Draft: Unscheduled */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <FileText className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                            3. השאר ברשימה ללא תאריך (טיוטה)
+                          </h5>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            מאפס תאריכי שידור ומשאיר את הזירה במאגר מוכנה לשיבוץ
+                          </p>
+                        </div>
+                      </div>
                       <button
-                        type="button"
-                        onClick={() => setScheduleDurationDays(7)}
-                        className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                          scheduleDurationDays === 7
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
-                        }`}
+                        onClick={() => handleKeepAsDraft(managingTopic)}
+                        disabled={isProcessingAction}
+                        className="w-full py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer"
                       >
-                        7 ימים (שבוע)
+                        השאר במאגר ללא תאריך 📝
                       </button>
                     </div>
-                  </div>
-                </div>
 
-                {/* Dynamic Calculated Schedule Box */}
-                {scheduleLaunchAt && (
-                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5 shadow-2xs">
-                    <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>לוח זמנים מחושב אוטומטית:</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] pt-1">
-                      <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/40">
-                        <span className="text-slate-500 dark:text-slate-400 block text-[10px]">🚀 עלייה לאוויר:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatDateTime(scheduleLaunchAt, true)}
+                    {/* Close / Unpublish */}
+                    <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-2 rounded-xl bg-rose-500 text-white">
+                          <Lock className="w-4 h-4" />
                         </span>
+                        <div>
+                          <h5 className="text-xs font-black text-rose-950 dark:text-rose-100">
+                            {isAlreadyClosed ? '4. המשאל כבר נעול וסגור' : '4. הורדה מהאוויר / נעילת המשאל'}
+                          </h5>
+                          <p className="text-[11px] text-rose-700 dark:text-rose-300/80">
+                            {isAlreadyClosed
+                              ? 'המשאל כבר סגור ואינו פתוח להצבעות תושבים'
+                              : 'סוגר ונועל את המשאל מיידית להצבעות (מעביר ל"נסגרה")'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/40">
-                        <span className="text-amber-700 dark:text-amber-400 block text-[10px]">⏳ נעילת היגדים (+48ש):</span>
-                        <span className="font-bold text-amber-900 dark:text-amber-200">
-                          {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + 48 * 60 * 60 * 1000).toISOString(), true)}
-                        </span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/40">
-                        <span className="text-rose-700 dark:text-rose-400 block text-[10px]">🔒 סגירת המשאל (+{scheduleDurationDays}ימים):</span>
-                        <span className="font-bold text-rose-900 dark:text-rose-200">
-                          {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString(), true)}
-                        </span>
-                      </div>
+                      {!isAlreadyClosed && (
+                        <button
+                          onClick={() => handleUnpublishClose(managingTopic)}
+                          disabled={isProcessingAction}
+                          className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                        >
+                          נעל והורד מהאוויר כעת 🔒
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => handleApplySchedule(managingTopic)}
-                    disabled={isProcessingAction || !scheduleLaunchAt}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>שמור תזמון עתידי ⏳</span>
-                  </button>
                 </div>
-              </div>
-
-              {/* CARD 3 & 4: Draft vs Unpublish */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Draft: Unscheduled */}
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="p-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      <FileText className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <h5 className="text-xs font-black text-slate-900 dark:text-white">
-                        3. השאר ברשימה ללא תאריך (טיוטה)
-                      </h5>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        מאפס תאריכי שידור ומשאיר את הזירה במאגר מוכנה לשיבוץ
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleKeepAsDraft(managingTopic)}
-                    disabled={isProcessingAction}
-                    className="w-full py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer"
-                  >
-                    השאר במאגר ללא תאריך 📝
-                  </button>
-                </div>
-
-                {/* Close / Unpublish */}
-                <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="p-2 rounded-xl bg-rose-500 text-white">
-                      <Lock className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <h5 className="text-xs font-black text-rose-950 dark:text-rose-100">
-                        4. הורדה מהאוויר / נעילת המשאל
-                      </h5>
-                      <p className="text-[11px] text-rose-700 dark:text-rose-300/80">
-                        סוגר ונועל את המשאל מיידית להצבעות (מעביר ל"נסגרה")
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleUnpublishClose(managingTopic)}
-                    disabled={isProcessingAction}
-                    className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer"
-                  >
-                    נעל והורד מהאוויר כעת 🔒
-                  </button>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Quick Settings & Navigation in Modal */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
