@@ -1235,7 +1235,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => {
@@ -1245,7 +1245,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       setSelectedQueueIds(pendingQueue.map(s => s.id));
                     }
                   }}
-                  className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition cursor-pointer"
+                  className="w-full sm:w-auto text-center px-4 py-2.5 sm:py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition cursor-pointer"
                 >
                   {selectedQueueIds.length === pendingQueue.length ? 'בטל בחירת הכל' : 'בחר הכל'}
                 </button>
@@ -1254,9 +1254,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   type="button"
                   onClick={handleBatchApprove}
                   disabled={batchApproving || selectedQueueIds.length === 0}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                  className="w-full sm:w-auto justify-center px-5 py-3 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center gap-2 cursor-pointer active:scale-98"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>אשר את כל הנבחרים בלחיצת כפתור ({selectedQueueIds.length}) ✓</span>
                 </button>
               </div>
@@ -1301,11 +1301,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/80">
                       <button
                         type="button"
                         onClick={() => handleStatusChange(item.id, 'approved')}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        className="flex-1 sm:flex-none justify-center px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
                         title="אשר היגד זה בלבד"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -1314,7 +1314,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleStatusChange(item.id, 'rejected')}
-                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        className="flex-1 sm:flex-none justify-center px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
                         title="פסול היגד זה (זכות וטו)"
                       >
                         <X className="w-3.5 h-3.5" />

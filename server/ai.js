@@ -554,7 +554,20 @@ function simulatedHebrewModeration(text, existingStatements = []) {
       .toLowerCase()
       .replace(/[^\u0590-\u05FFa-z0-9\s]/g, '')
       .split(/\s+/)
-      .filter(w => w.length > 2);
+      .filter(w => w.length > 2)
+      .map(w => {
+        let cleaned = w;
+        // Strip common Hebrew prefixes (ו, ב, ל, מ, כ, ה, ש)
+        if (cleaned.length > 3 && /^[ובלמכהש]/.test(cleaned)) cleaned = cleaned.slice(1);
+        if (cleaned.length > 3 && /^[ובלמכהש]/.test(cleaned)) cleaned = cleaned.slice(1);
+        // Strip common Hebrew suffixes
+        if (cleaned.length > 4 && (cleaned.endsWith('ות') || cleaned.endsWith('ים') || cleaned.endsWith('ית') || cleaned.endsWith('הם') || cleaned.endsWith('נו'))) {
+          cleaned = cleaned.slice(0, -2);
+        } else if (cleaned.length > 3 && (cleaned.endsWith('ם') || cleaned.endsWith('ן') || cleaned.endsWith('ה') || cleaned.endsWith('י'))) {
+          cleaned = cleaned.slice(0, -1);
+        }
+        return cleaned;
+      });
 
     const inputWords = new Set(normalizeWords(text));
     if (inputWords.size >= 3) {
@@ -567,7 +580,7 @@ function simulatedHebrewModeration(text, existingStatements = []) {
         const shared = existWords.filter(w => inputWords.has(w));
         const overlap = shared.length / Math.min(inputWords.size, existWords.length);
 
-        if (overlap >= 0.52) {
+        if (overlap >= 0.38 || shared.length >= 4) {
           return {
             passed: false,
             isDuplicate: true,

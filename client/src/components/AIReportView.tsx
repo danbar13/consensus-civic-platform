@@ -77,9 +77,9 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, darkMode = fa
           <button
             onClick={() => loadReport(templateType)}
             disabled={loading}
-            className="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
+            className="w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-3 sm:py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm transition disabled:opacity-50 shadow-md cursor-pointer active:scale-98"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
             <span>הפקת Editorial Brief מחדש (AI) ✍️</span>
           </button>
         </div>
