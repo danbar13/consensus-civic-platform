@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Topic, Statement, AIStats, TopicAnalytics } from '../types';
 import { getTopicLifecycle, sortTopicsByLifecycle, formatTopicDateTime as formatDateTime } from '../topicLifecycle';
+import { getCachedStatements, setCachedStatements } from '../defaultData';
 import { AIReportView } from './AIReportView';
 import { ConsensusDashboard } from './ConsensusDashboard';
 import { 
@@ -231,8 +232,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const loadStatements = async () => {
     try {
+      // Immediate 0ms rendering from local cache
+      const cached = getCachedStatements(currentTopic.id);
+      if (cached && cached.length > 0) {
+        setAllStatements(cached);
+        if (statusFilter === 'approved') {
+          setStatements(cached.filter(s => s.status === 'approved'));
+        } else if (statusFilter === 'rejected') {
+          setStatements(cached.filter(s => s.status === 'rejected'));
+        } else {
+          setStatements(cached.filter(s => s.status === 'pending' || s.status === 'pending_approval' || s.status === 'scheduled_auto'));
+        }
+      }
+
       const all = await fetchStatements(currentTopic.id);
       setAllStatements(all);
+      setCachedStatements(currentTopic.id, all);
       if (statusFilter === 'approved') {
         setStatements(all.filter(s => s.status === 'approved'));
       } else if (statusFilter === 'rejected') {

@@ -557,6 +557,7 @@ app.post('/api/votes', voteRateLimiter, async (req, res) => {
       device_fingerprint
     });
 
+    invalidateAnalyticsCache(topic_id);
     res.json(result);
   } catch (err) {
     console.error('Error recording vote:', err);
@@ -582,16 +583,36 @@ app.get('/api/topics/:id/user-votes', async (req, res) => {
 // ANALYTICS & AI ENDPOINTS
 // -------------------------------------------------------------
 
+// In-memory analytics cache (TTL: 15s) for instant sub-10ms topic switching
+const analyticsCache = new Map();
+const ANALYTICS_CACHE_TTL_MS = 15000;
+
+function invalidateAnalyticsCache(topicId) {
+  if (topicId) {
+    analyticsCache.delete(topicId);
+  } else {
+    analyticsCache.clear();
+  }
+}
+
 // Live algorithmic consensus & bridging calculation
 app.get('/api/topics/:id/analytics', async (req, res) => {
   try {
-    const topic = await cloudGetTopic(req.params.id);
-    if (!topic) return res.status(404).json({ error: 'Topic not found' });
-    const statements = await cloudGetStatements(req.params.id, 'approved');
-    const votes = await cloudGetVotesForTopic(req.params.id);
+    const topicId = req.params.id;
+    const cached = analyticsCache.get(topicId);
+    if (cached && (Date.now() - cached.timestamp < ANALYTICS_CACHE_TTL_MS)) {
+      return res.json(cached.data);
+    }
 
-    const analytics = computeTopicAnalytics(req.params.id, { topic, statements, votes });
+    const topic = await cloudGetTopic(topicId);
+    if (!topic) return res.status(404).json({ error: 'Topic not found' });
+    const statements = await cloudGetStatements(topicId, 'approved');
+    const votes = await cloudGetVotesForTopic(topicId);
+
+    const analytics = computeTopicAnalytics(topicId, { topic, statements, votes });
     if (!analytics) return res.status(404).json({ error: 'Topic not found' });
+
+    analyticsCache.set(topicId, { data: analytics, timestamp: Date.now() });
     res.json(analytics);
   } catch (err) {
     console.error('Error computing analytics:', err);

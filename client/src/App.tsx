@@ -183,13 +183,20 @@ export function App() {
     init();
   }, []);
 
+  const activeTopicReqRef = useRef<string>('');
+
   const loadTopicData = async (topicId: string, sid: string) => {
+    activeTopicReqRef.current = topicId;
     try {
       const [analyticsData, statementsData, votesData] = await Promise.all([
         fetchAnalytics(topicId),
         fetchStatements(topicId),
         fetchUserVotes(topicId, sid)
       ]);
+      
+      // Ignore if user switched to another topic while this request was in flight
+      if (activeTopicReqRef.current !== topicId) return;
+
       setAnalytics(analyticsData);
       setStatements(statementsData);
       setUserVotes(votesData);
@@ -200,21 +207,50 @@ export function App() {
     }
   };
 
-  const handleSelectTopic = async (topicId: string) => {
+  const handleSelectTopic = (topicId: string) => {
     const t = topics.find(item => item.id === topicId);
     if (!t) return;
+
+    // 1. Immediately switch currentTopic (0ms)
     setCurrentTopic(t);
     setCachedTopic(t);
     const grp = getSavedGroup(t.id, t.groups[0]?.id || 'residents');
     setCurrentGroup(grp);
-    setLoading(true);
-    await loadTopicData(t.id, sessionId);
-    setLoading(false);
 
-    // Update URL query without full reload
+    // 2. Instantly update analytics and statements in 0ms (optimistic cache)
+    const cachedA = getCachedAnalytics(t.id);
+    const cachedS = getCachedStatements(t.id);
+
+    if (cachedA && cachedA.topic?.id === t.id) {
+      setAnalytics(cachedA);
+    } else {
+      setAnalytics({
+        topic: t,
+        meta: {
+          totalParticipants: t.stats?.participants || 0,
+          totalVotesCast: t.stats?.totalVotes || 0,
+          totalStatements: t.stats?.statementsCount || 0,
+          bridgingStatementsCount: 0,
+          consensusIndex: 40,
+          groupParticipantCounts: {}
+        },
+        statements: cachedS || [],
+        topBridging: [],
+        topDivisive: []
+      });
+    }
+
+    if (cachedS && cachedS.length > 0) {
+      setStatements(cachedS);
+    }
+
+    // 3. Update URL query without full reload
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('topic', t.id);
     window.history.pushState({}, '', newUrl.toString());
+
+    // 4. Fetch fresh server data in background with zero UI delay
+    loadTopicData(t.id, sessionId);
   };
 
   const handleChangeGroup = (groupId: string) => {
