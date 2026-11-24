@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Topic, Statement, AIStats, TopicAnalytics } from '../types';
+import { getTopicLifecycle, sortTopicsByLifecycle, formatTopicDateTime as formatDateTime } from '../topicLifecycle';
 import { AIReportView } from './AIReportView';
 import { ConsensusDashboard } from './ConsensusDashboard';
 import { 
@@ -406,84 +407,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     } catch (err: any) {
       alert(err.message || 'שגיאה במחיקת הזירה');
     }
-  };
-
-  const formatDateTime = (dateStr?: string | null, includeYear = false) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
-    const datePart = d.toLocaleDateString('he-IL', {
-      day: '2-digit',
-      month: '2-digit',
-      ...(includeYear ? { year: 'numeric' } : {})
-    });
-    const timePart = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-    return `${datePart} ${timePart}`;
-  };
-
-  const getTopicLifecycle = (t: Topic) => {
-    const now = Date.now();
-    const startsAtMs = t.starts_at ? new Date(t.starts_at).getTime() : null;
-    const closesAtMs = t.closes_at ? new Date(t.closes_at).getTime() : null;
-    const isWeekly = (t.topic_type === 'weekly' || !t.topic_type);
-
-    // 1. Closed: closes_at exists and has passed
-    if (closesAtMs && closesAtMs <= now) {
-      return {
-        status: 'closed' as const,
-        label: 'נסגרה',
-        badgeClass: 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
-        dotClass: 'bg-rose-500',
-        description: `המשאל הסתיים ב-${formatDateTime(t.closes_at, true)}`,
-        startsAtFormatted: formatDateTime(t.starts_at),
-        submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
-        closesAtFormatted: formatDateTime(t.closes_at, true),
-        isWeekly
-      };
-    }
-
-    // 2. Scheduled: starts_at exists and is in the future
-    if (startsAtMs && startsAtMs > now) {
-      return {
-        status: 'scheduled' as const,
-        label: 'מתוזמנת',
-        badgeClass: 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800',
-        dotClass: 'bg-indigo-500 animate-pulse',
-        description: `תעלה לאוויר ב-${formatDateTime(t.starts_at, true)}`,
-        startsAtFormatted: formatDateTime(t.starts_at, true),
-        submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
-        closesAtFormatted: formatDateTime(t.closes_at, true),
-        isWeekly
-      };
-    }
-
-    // 3. Draft / Unscheduled: neither starts_at nor closes_at is set
-    if (!startsAtMs && !closesAtMs) {
-      return {
-        status: 'draft' as const,
-        label: 'פתוחה ללא תאריך',
-        badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700',
-        dotClass: 'bg-slate-400',
-        description: 'במאגר – ממתינה לשיבוץ מועד פרסום',
-        startsAtFormatted: null,
-        submissionsCloseFormatted: null,
-        closesAtFormatted: null,
-        isWeekly
-      };
-    }
-
-    // 4. Active (Live): starts_at has passed or is null, and closes_at is in the future
-    return {
-      status: 'active' as const,
-      label: 'פעילה באוויר',
-      badgeClass: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800',
-      dotClass: 'bg-emerald-500 animate-pulse',
-      description: closesAtMs ? `פתוחה להצבעות עד ${formatDateTime(t.closes_at, true)}` : 'פתוחה להצבעות',
-      startsAtFormatted: formatDateTime(t.starts_at) || formatDateTime(t.created_at),
-      submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
-      closesAtFormatted: formatDateTime(t.closes_at, true),
-      isWeekly
-    };
   };
 
   const handleOpenManageTopic = (t: Topic) => {
@@ -1382,7 +1305,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     {(() => {
-                      const list = topics.filter(t => {
+                      const list = sortTopicsByLifecycle(topics).filter(t => {
                         const lc = getTopicLifecycle(t);
                         if (topicFilter !== 'all' && lc.status !== topicFilter) return false;
                         if (topicSearchQuery.trim()) {

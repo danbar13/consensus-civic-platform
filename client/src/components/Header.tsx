@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Topic } from '../types';
+import { getTopicLifecycle, sortTopicsByLifecycle } from '../topicLifecycle';
 import { 
   Compass, 
   BarChart3, 
@@ -373,9 +374,18 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <div className="flex items-center gap-2 truncate">
                     {currentTopic && getCategoryIcon(currentTopic.category)}
-                    <span className="font-bold truncate max-w-[240px] sm:max-w-md">
+                    <span className="font-bold truncate max-w-[200px] sm:max-w-xs md:max-w-sm">
                       {currentTopic?.title || 'בחר זירת דיון'}
                     </span>
+                    {currentTopic && (() => {
+                      const currentLc = getTopicLifecycle(currentTopic);
+                      return (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border shrink-0 hidden sm:flex items-center gap-1 ${currentLc.headerBadgeClass}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${currentLc.dotClass}`} />
+                          <span>{currentLc.label}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -388,12 +398,13 @@ export const Header: React.FC<HeaderProps> = ({
                     />
                     <div className="absolute right-0 left-0 md:left-auto md:right-0 mt-2 w-full md:w-96 max-w-[calc(100vw-2rem)] mx-auto md:mx-0 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-40 overflow-hidden divide-y divide-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="p-2.5 bg-slate-950/80 text-xs font-semibold text-slate-400 flex items-center justify-between">
-                        <span>זירות דיון ומשאלים זמינים:</span>
+                        <span>זירות דיון ומשאלים (לפי עדיפות):</span>
                         <span className="text-[11px] text-amber-400 font-bold">{topics.length} זירות</span>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
-                        {topics.map(t => {
+                        {sortTopicsByLifecycle(topics).map(t => {
                           const isSelected = currentTopic?.id === t.id;
+                          const lc = getTopicLifecycle(t);
                           return (
                             <button
                               key={t.id}
@@ -409,17 +420,25 @@ export const Header: React.FC<HeaderProps> = ({
                                 {getCategoryIcon(t.category)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="text-xs font-medium text-amber-400/90">{t.organization}</span>
+                                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                  <span className="text-xs font-semibold text-amber-400/90">{t.organization}</span>
+                                  
+                                  {/* Topic Type Pill */}
                                   {t.topic_type === 'special' ? (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-purple-500/30 text-purple-300 border border-purple-500/40">
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-purple-500/25 text-purple-300 border border-purple-500/40">
                                       ⚡ שלא מן המניין
                                     </span>
                                   ) : (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-blue-500/30 text-blue-300 border border-blue-500/40">
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-blue-500/25 text-blue-300 border border-blue-500/40">
                                       📅 שבועית
                                     </span>
                                   )}
+
+                                  {/* Topic Lifecycle Status Pill */}
+                                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold border flex items-center gap-1 ${lc.headerBadgeClass}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${lc.dotClass}`} />
+                                    <span>{lc.label}</span>
+                                  </span>
                                 </div>
                                 <div className="text-sm font-bold text-white line-clamp-2 leading-snug">{t.title}</div>
                                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">

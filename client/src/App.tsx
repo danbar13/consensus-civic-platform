@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
 import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes, clearAdminToken } from './api';
 import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
+import { getTopicLifecycle, sortTopicsByLifecycle, getDefaultTopic } from './topicLifecycle';
 import { 
   DEFAULT_TOPIC, 
   DEFAULT_STATEMENTS, 
@@ -32,12 +33,17 @@ export function App() {
   // Check URL parameters
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const isEmbed = urlParams.get('embed') === 'true';
-  const initialTopicSlug = urlParams.get('topic') || 'eilat-parking';
+  const explicitTopicSlug = urlParams.get('topic');
   const initialTabParam = urlParams.get('tab');
   const isPitchParam = urlParams.get('pitch') === 'true';
 
-  const [topics, setTopics] = useState<Topic[]>(() => getCachedTopics() || [DEFAULT_TOPIC]);
-  const [currentTopic, setCurrentTopic] = useState<Topic>(() => getCachedTopic(initialTopicSlug) || DEFAULT_TOPIC);
+  const cachedTopics = getCachedTopics();
+  const sortedCachedTopics = cachedTopics ? sortTopicsByLifecycle(cachedTopics) : null;
+  const initialDefaultTopic = sortedCachedTopics ? (getDefaultTopic(sortedCachedTopics) || sortedCachedTopics[0]) : DEFAULT_TOPIC;
+  const initialTopic = (explicitTopicSlug ? (sortedCachedTopics?.find(t => t.id === explicitTopicSlug || t.slug === explicitTopicSlug) || getCachedTopic(explicitTopicSlug)) : null) || initialDefaultTopic || DEFAULT_TOPIC;
+
+  const [topics, setTopics] = useState<Topic[]>(() => sortedCachedTopics || [DEFAULT_TOPIC]);
+  const [currentTopic, setCurrentTopic] = useState<Topic>(() => initialTopic);
   const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>(() => {
     if (typeof window === 'undefined') return 'vote';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -46,12 +52,11 @@ export function App() {
     }
     return 'vote';
   });
-  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(() => getCachedAnalytics(initialTopicSlug) || DEFAULT_ANALYTICS);
-  const [statements, setStatements] = useState<Statement[]>(() => getCachedStatements(initialTopicSlug) || DEFAULT_STATEMENTS);
+  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(() => getCachedAnalytics(initialTopic.id) || DEFAULT_ANALYTICS);
+  const [statements, setStatements] = useState<Statement[]>(() => getCachedStatements(initialTopic.id) || DEFAULT_STATEMENTS);
   const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>({});
   const [currentGroup, setCurrentGroup] = useState<string>(() => {
-    const t = getCachedTopic(initialTopicSlug) || DEFAULT_TOPIC;
-    return getSavedGroup(t.id, t.groups[0]?.id || 'residents');
+    return getSavedGroup(initialTopic.id, initialTopic.groups[0]?.id || 'residents');
   });
   const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -146,11 +151,20 @@ export function App() {
       try {
         const allTopics = await fetchTopics();
         if (allTopics && allTopics.length > 0) {
-          setTopics(allTopics);
-          setCachedTopics(allTopics);
+          const sortedTopics = sortTopicsByLifecycle(allTopics);
+          setTopics(sortedTopics);
+          setCachedTopics(sortedTopics);
 
-          // Find initial topic or fallback to first
-          const selected = allTopics.find(t => t.id === initialTopicSlug || t.slug === initialTopicSlug) || allTopics[0];
+          // Find initial topic: prioritize explicit URL param, or default to live active topic
+          const urlTopic = urlParams.get('topic');
+          let selected = urlTopic 
+            ? sortedTopics.find(t => t.id === urlTopic || t.slug === urlTopic) 
+            : null;
+
+          if (!selected) {
+            selected = getDefaultTopic(sortedTopics) || sortedTopics[0];
+          }
+
           if (selected) {
             setCurrentTopic(selected);
             setCachedTopic(selected);
@@ -235,6 +249,20 @@ export function App() {
     }
   };
 
+  const handleSelectTab = (tab: 'vote' | 'dashboard' | 'report' | 'admin' | 'pitch') => {
+    if (tab === 'admin') {
+      // ברירת המחדל בהצגת זירה בניהול היא הזירה שבאוויר כרגע
+      const currentLc = currentTopic ? getTopicLifecycle(currentTopic) : null;
+      if (!currentLc || currentLc.status !== 'active') {
+        const liveTopic = getDefaultTopic(topics);
+        if (liveTopic && liveTopic.id !== currentTopic?.id) {
+          handleSelectTopic(liveTopic.id);
+        }
+      }
+    }
+    setActiveTab(tab);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       
@@ -243,10 +271,10 @@ export function App() {
         currentTopic={currentTopic}
         topics={topics}
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
         onSelectTopic={handleSelectTopic}
         onOpenNewTopic={() => {
-          setActiveTab('admin');
+          handleSelectTab('admin');
           setTriggerNewTopic(true);
         }}
         onOpenEmbed={() => setEmbedModalOpen(true)}
@@ -310,29 +338,38 @@ export function App() {
                 darkMode={darkMode}
                 onTopicCreated={async newT => {
                   const all = await fetchTopics();
-                  setTopics(all);
+                  const sorted = sortTopicsByLifecycle(all);
+                  setTopics(sorted);
+                  setCachedTopics(sorted);
                   handleSelectTopic(newT.id);
-                  setActiveTab('admin');
+                  handleSelectTab('admin');
                 }}
                 onTopicUpdated={updatedT => {
-                  setTopics(prev => prev.map(t => t.id === updatedT.id ? updatedT : t));
+                  setTopics(prev => {
+                    const merged = prev.map(t => t.id === updatedT.id ? updatedT : t);
+                    return sortTopicsByLifecycle(merged);
+                  });
                   if (currentTopic?.id === updatedT.id) {
                     setCurrentTopic(updatedT);
                   }
                   // Background sync to keep cache and full list consistent
                   fetchTopics().then(all => {
                     if (all && all.length > 0) {
-                      setTopics(all);
-                      setCachedTopics(all);
+                      const sorted = sortTopicsByLifecycle(all);
+                      setTopics(sorted);
+                      setCachedTopics(sorted);
                     }
                   }).catch(console.error);
                 }}
                 onTopicDeleted={async deletedId => {
                   const all = await fetchTopics();
-                  setTopics(all);
-                  const remaining = all.filter(t => t.id !== deletedId);
+                  const sorted = sortTopicsByLifecycle(all);
+                  setTopics(sorted);
+                  setCachedTopics(sorted);
+                  const remaining = sorted.filter(t => t.id !== deletedId);
                   if (remaining.length > 0) {
-                    handleSelectTopic(remaining[0].id);
+                    const nextDef = getDefaultTopic(remaining) || remaining[0];
+                    handleSelectTopic(nextDef.id);
                   }
                 }}
                 onStatementsChanged={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
@@ -346,8 +383,8 @@ export function App() {
 
             {activeTab === 'pitch' && (
               <PitchDeckView
-                onNavigateToAdmin={() => setActiveTab('admin')}
-                onNavigateToWidget={() => setActiveTab('vote')}
+                onNavigateToAdmin={() => handleSelectTab('admin')}
+                onNavigateToWidget={() => handleSelectTab('vote')}
                 darkMode={darkMode}
               />
             )}
@@ -444,7 +481,7 @@ export function App() {
             {/* Discreet Editorial / Admin Login Link */}
             <div className="pt-2 flex justify-center">
               <button
-                onClick={() => setActiveTab('admin')}
+                onClick={() => handleSelectTab('admin')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-500 hover:text-amber-400 bg-slate-800/40 hover:bg-slate-800 transition text-xs font-semibold cursor-pointer border border-slate-800/80"
                 title="כניסה מוגנת בסיסמה למערכת העורכים ומנהלי המשאל"
               >
