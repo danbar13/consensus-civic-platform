@@ -51,7 +51,8 @@ import {
   Eye,
   BarChart3,
   AlertTriangle,
-  Compass
+  Compass,
+  Info
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -128,6 +129,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Edit topic modal state
   const [showEditTopicModal, setShowEditTopicModal] = useState(false);
+  const [editingTopicId, setEditingTopicId] = useState('');
+  const [editingTopicVotes, setEditingTopicVotes] = useState(0);
   const [editTopicTitle, setEditTopicTitle] = useState('');
   const [editTopicSubtitle, setEditTopicSubtitle] = useState('');
   const [editTopicOrg, setEditTopicOrg] = useState('');
@@ -304,6 +307,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleOpenEditModal = (t: Topic) => {
+    setEditingTopicId(t.id);
+    setEditingTopicVotes(t.stats?.totalVotes || 0);
     setEditTopicTitle(t.title);
     setEditTopicSubtitle(t.subtitle || '');
     setEditTopicOrg(t.organization);
@@ -333,6 +338,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
     e.preventDefault();
     setEditErrorMessage(null);
 
+    const targetId = editingTopicId || currentTopic.id;
+
     if (!editTopicTitle.trim() || !editTopicOrg.trim()) {
       setEditErrorMessage('נא למלא כותרת ושם ארגון.');
       return;
@@ -340,7 +347,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     setUpdatingTopic(true);
     try {
-      const updated = await updateTopic(currentTopic.id, {
+      const updated = await updateTopic(targetId, {
         title: editTopicTitle.trim(),
         subtitle: editTopicSubtitle.trim(),
         organization: editTopicOrg.trim(),
@@ -354,7 +361,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       setShowEditTopicModal(false);
       onTopicUpdated(updated);
-      setActionSuccess('פרטי זירת הדיון עודכנו בהצלחה!');
+      setActionSuccess('פרטי והגדרות זירת הדיון עודכנו בהצלחה!');
       setTimeout(() => setActionSuccess(null), 3500);
     } catch (err: any) {
       setEditErrorMessage(err.message || 'שגיאה בעדכון הזירה');
@@ -425,6 +432,69 @@ export const AdminView: React.FC<AdminViewProps> = ({
       setTimeout(() => setActionSuccess(null), 5000);
     } catch (err: any) {
       alert(err.message || 'שגיאה בהפעלת הזירה');
+    }
+  };
+
+  const handleToggleTopicType = async (t: Topic) => {
+    const newType = t.topic_type === 'special' ? 'weekly' : 'special';
+    const typeLabel = newType === 'special' ? 'זירה שלא מן המניין (בזק) ⚡' : 'זירה שבועית רגילה 📅';
+
+    if (newType === 'weekly') {
+      const activeWeekly = topics.find(other => 
+        other.id !== t.id &&
+        (other.topic_type === 'weekly' || !other.topic_type) && 
+        (!other.closes_at || new Date(other.closes_at).getTime() > Date.now())
+      );
+      if (activeWeekly) {
+        const confirmSwitch = window.confirm(
+          `קיימת כבר זירה שבועית פעילה כעת ("${activeWeekly.title}").\nהאם לנעול אותה ולהפוך את הזירה "${t.title}" לזירה השבועית המרכזית במקומה?`
+        );
+        if (!confirmSwitch) return;
+
+        await updateTopic(activeWeekly.id, {
+          closes_at: new Date().toISOString(),
+          submissions_close_at: new Date().toISOString()
+        });
+      }
+    }
+
+    try {
+      const updated = await updateTopic(t.id, { topic_type: newType });
+      onTopicUpdated(updated);
+      setActionSuccess(`סטטוס הזירה "${t.title}" שונה ל-${typeLabel}!`);
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בשינוי סוג הזירה');
+    }
+  };
+
+  const handleToggleTopicClosed = async (t: Topic) => {
+    const closing = getClosingStatus(t.closes_at);
+    const isCurrentlyClosed = closing?.isPast;
+
+    if (isCurrentlyClosed) {
+      const newClose = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const newSubClose = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      try {
+        const updated = await updateTopic(t.id, { closes_at: newClose, submissions_close_at: newSubClose });
+        onTopicUpdated(updated);
+        setActionSuccess(`המשאל "${t.title}" נפתח מחדש לשבוע הקרוב! 🔓`);
+        setTimeout(() => setActionSuccess(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'שגיאה בפתיחת המשאל');
+      }
+    } else {
+      const confirmed = window.confirm(`האם לנעול ולסגור כעת את המשאל:\n"${t.title}"?\n\nלאחר הנעילה לא יתקבלו הצבעות נוספות והמשאל יוצג כמשאל שהסתיים.`);
+      if (!confirmed) return;
+      try {
+        const nowIso = new Date().toISOString();
+        const updated = await updateTopic(t.id, { closes_at: nowIso, submissions_close_at: nowIso });
+        onTopicUpdated(updated);
+        setActionSuccess(`המשאל "${t.title}" ננעל ונסגר בהצלחה! 🔒`);
+        setTimeout(() => setActionSuccess(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'שגיאה בנעילת המשאל');
+      }
     }
   };
 
@@ -1013,25 +1083,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <span>ייצוא ל-Excel / CSV</span>
               </a>
 
+              {/* Quick Toggle Topic Type Button */}
+              <button
+                onClick={() => handleToggleTopicType(currentTopic)}
+                className="px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="החלף סוג זירה בין שבועית רגילה לזירה שלא מן המניין"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{currentTopic.topic_type === 'special' ? 'העבר ל-📅 שבועית' : 'העבר ל-⚡ שלא מן המניין'}</span>
+              </button>
+
               {/* Edit Topic Button */}
-              {isCurrentTopicEditable ? (
-                <button
-                  onClick={() => handleOpenEditModal(currentTopic)}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>ערוך נושא</span>
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 font-bold text-xs flex items-center gap-1.5 cursor-not-allowed opacity-60"
-                  title="לא ניתן לערוך נושא לאחר שכבר התקבלו בו הצבעות ותגובות"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>נעול לעריכה</span>
-                </button>
-              )}
+              <button
+                onClick={() => handleOpenEditModal(currentTopic)}
+                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                title="ערוך הגדרות זירה (סוג זירה, מועדי סגירה, מצב סינון)"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>ערוך הגדרות זירה</span>
+              </button>
 
               {/* Delete Topic Button */}
               <button
@@ -1147,19 +1217,56 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </span>
                     )}
 
-                    {isEditable ? (
-                      <button
-                        onClick={() => handleOpenEditModal(t)}
-                        className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 transition"
-                        title="ערוך זירה זו"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <span className="p-1.5 text-slate-300 dark:text-slate-700" title="נעול לעריכה מכיוון שכבר נרשמו הצבעות">
-                        <Lock className="w-3.5 h-3.5" />
-                      </span>
-                    )}
+                    {/* Quick Toggle Topic Type in row */}
+                    <button
+                      onClick={() => handleToggleTopicType(t)}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                        t.topic_type === 'special'
+                          ? 'bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                          : 'bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                      }`}
+                      title={t.topic_type === 'special' ? 'החלף סוג זירה ל-שבועית רגילה' : 'החלף סוג זירה ל-מיוחדת שלא מן המניין'}
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>{t.topic_type === 'special' ? 'העבר לשבועית 📅' : 'העבר לשלא מן המניין ⚡'}</span>
+                    </button>
+
+                    {/* Quick Close / Reopen Toggle in row */}
+                    {(() => {
+                      const closing = getClosingStatus(t.closes_at);
+                      return (
+                        <button
+                          onClick={() => handleToggleTopicClosed(t)}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                            closing?.isPast
+                              ? 'bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : 'bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                          }`}
+                          title={closing?.isPast ? 'פתח מחדש את המשאל להצבעות (הארך לשבוע נוסף)' : 'נעל וסגור את המשאל כעת'}
+                        >
+                          {closing?.isPast ? (
+                            <>
+                              <Unlock className="w-3 h-3" />
+                              <span>פתח מחדש</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3 h-3" />
+                              <span>נעל משאל</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
+
+                    {/* Edit Topic Settings Button (Always enabled!) */}
+                    <button
+                      onClick={() => handleOpenEditModal(t)}
+                      className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 transition cursor-pointer"
+                      title="ערוך הגדרות זירה (סוג זירה, מועדי סגירה ומצב סינון)"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
 
                     <button
                       onClick={() => handleDeleteTopic(t.id, t.title)}
@@ -2238,7 +2345,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-blue-500" />
                 <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                  עריכת זירת דיון (טרם התקבלו הצבעות)
+                  {editingTopicVotes > 0 ? 'עריכת הגדרות וסטטוס זירה' : 'עריכת פרטי והגדרות זירת דיון'}
                 </h3>
               </div>
               <button
@@ -2248,6 +2355,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {editingTopicVotes > 0 && (
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>
+                  בזירה זו נרשמו כבר {editingTopicVotes} הצבעות. שדות כותרת וקבוצות נעולים כדי לשמור על מהימנות ההצבעות, אך סוג הזירה (שבועית / שלא מן המניין), מועדי הסגירה ומצב הסינון פתוחים לעדכון תמיד.
+                </span>
+              </div>
+            )}
 
             {editErrorMessage && (
               <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-start gap-2">
@@ -2260,13 +2376,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   כותרת הדיון / הסוגיה *
+                  {editingTopicVotes > 0 && <span className="text-[10px] text-slate-400 mr-1.5">(נעול)</span>}
                 </label>
                 <input
                   type="text"
                   required
+                  disabled={editingTopicVotes > 0}
                   value={editTopicTitle}
                   onChange={e => setEditTopicTitle(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 disabled:bg-slate-100 dark:disabled:bg-slate-900 text-slate-900 dark:text-white disabled:text-slate-500 text-sm focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -2276,24 +2394,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </label>
                 <input
                   type="text"
+                  disabled={editingTopicVotes > 0}
                   value={editTopicSubtitle}
                   onChange={e => setEditTopicSubtitle(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 disabled:bg-slate-100 dark:disabled:bg-slate-900 text-slate-900 dark:text-white disabled:text-slate-500 text-sm focus:border-blue-500 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    סוג זירה
+                <div className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60">
+                  <label className="block text-xs font-black text-purple-950 dark:text-purple-300 mb-1 flex items-center gap-1">
+                    <Compass className="w-3.5 h-3.5 text-purple-600" />
+                    <span>סוג זירה (סטטוס)</span>
                   </label>
                   <select
                     value={editTopicType}
                     onChange={e => setEditTopicType(e.target.value as any)}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                    className="w-full p-2.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold outline-none"
                   >
                     <option value="weekly">📅 זירה שבועית רגילה</option>
-                    <option value="special">⚡ זירה שלא מן המניין</option>
+                    <option value="special">⚡ זירה שלא מן המניין (בזק)</option>
                   </select>
                 </div>
 
@@ -2304,9 +2424,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <input
                     type="text"
                     required
+                    disabled={editingTopicVotes > 0}
                     value={editTopicOrg}
                     onChange={e => setEditTopicOrg(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 disabled:bg-slate-100 dark:disabled:bg-slate-900 text-slate-900 dark:text-white disabled:text-slate-500 text-xs focus:border-blue-500 outline-none"
                   />
                 </div>
 
@@ -2315,9 +2436,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     קטגוריה
                   </label>
                   <select
+                    disabled={editingTopicVotes > 0}
                     value={editTopicCategory}
                     onChange={e => setEditTopicCategory(e.target.value as any)}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 disabled:bg-slate-100 dark:disabled:bg-slate-900 text-slate-900 dark:text-white disabled:text-slate-500 text-xs focus:border-blue-500 outline-none"
                   >
                     <option value="municipal">עירוני ושיתוף ציבור</option>
                     <option value="mediation">גישור ויישוב סכסוכים</option>
