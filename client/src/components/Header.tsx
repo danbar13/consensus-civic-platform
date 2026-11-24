@@ -347,14 +347,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="hidden sm:inline">הטמעה באתר</span>
                 </button>
 
-                <button
-                  onClick={onOpenNewTopic}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>פתח זירה</span>
-                </button>
-
                 {onAdminLogout && (
                   <button
                     onClick={onAdminLogout}

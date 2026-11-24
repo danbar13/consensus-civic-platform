@@ -50,9 +50,18 @@ import {
   Database,
   Eye,
   BarChart3,
+  BarChart2,
   AlertTriangle,
   Compass,
-  Info
+  Info,
+  Calendar,
+  Search,
+  Filter,
+  Play,
+  Square,
+  Users,
+  Radio,
+  FileText
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -145,6 +154,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Action feedback message
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Master Topics Table filter & lifecycle scheduling state
+  const [topicFilter, setTopicFilter] = useState<'all' | 'active' | 'scheduled' | 'draft' | 'closed'>('all');
+  const [topicSearchQuery, setTopicSearchQuery] = useState('');
+  const [managingTopic, setManagingTopic] = useState<Topic | null>(null);
+  const [scheduleLaunchAt, setScheduleLaunchAt] = useState<string>('');
+  const [scheduleDurationDays, setScheduleDurationDays] = useState<number>(5);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   // Admin password authentication gate
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
@@ -391,48 +408,227 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  const handleLaunchAsWeekly = async (targetTopic: Topic) => {
-    const activeWeekly = topics.find(t => 
-      t.id !== targetTopic.id &&
-      (t.topic_type === 'weekly' || !t.topic_type) && 
-      (!t.closes_at || new Date(t.closes_at).getTime() > Date.now())
-    );
+  const formatDateTime = (dateStr?: string | null, includeYear = false) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const datePart = d.toLocaleDateString('he-IL', {
+      day: '2-digit',
+      month: '2-digit',
+      ...(includeYear ? { year: 'numeric' } : {})
+    });
+    const timePart = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart} ${timePart}`;
+  };
 
-    const promptMsg = activeWeekly
-      ? `האם להעלות את הזירה:\n"${targetTopic.title}"\nכמשאל השבועי הפעיל כעת של "ערב ערב באילת"?\n\nשים לב: פעולה זו תנעל/תסגור אוטומטית את המשאל השבועי הקודם ("${activeWeekly.title}") ותפתח חלון של 48 שעות להצעות קהילה ושבוע להצבעות עד גיליון יום חמישי הבא.`
-      : `האם להעלות את הזירה:\n"${targetTopic.title}"\nכמשאל השבועי הפעיל כעת של "ערב ערב באילת"?\n\nייפתח חלון של 48 שעות להצעות קהילה ושבוע להצבעות עד יום חמישי הבא.`;
+  const getTopicLifecycle = (t: Topic) => {
+    const now = Date.now();
+    const startsAtMs = t.starts_at ? new Date(t.starts_at).getTime() : null;
+    const closesAtMs = t.closes_at ? new Date(t.closes_at).getTime() : null;
+    const isWeekly = (t.topic_type === 'weekly' || !t.topic_type);
 
-    if (!window.confirm(promptMsg)) return;
+    // 1. Closed: closes_at exists and has passed
+    if (closesAtMs && closesAtMs <= now) {
+      return {
+        status: 'closed' as const,
+        label: 'נסגרה',
+        badgeClass: 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
+        dotClass: 'bg-rose-500',
+        description: `המשאל הסתיים ב-${formatDateTime(t.closes_at, true)}`,
+        startsAtFormatted: formatDateTime(t.starts_at),
+        submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
+        closesAtFormatted: formatDateTime(t.closes_at, true),
+        isWeekly
+      };
+    }
 
+    // 2. Scheduled: starts_at exists and is in the future
+    if (startsAtMs && startsAtMs > now) {
+      return {
+        status: 'scheduled' as const,
+        label: 'מתוזמנת',
+        badgeClass: 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800',
+        dotClass: 'bg-indigo-500 animate-pulse',
+        description: `תעלה לאוויר ב-${formatDateTime(t.starts_at, true)}`,
+        startsAtFormatted: formatDateTime(t.starts_at, true),
+        submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
+        closesAtFormatted: formatDateTime(t.closes_at, true),
+        isWeekly
+      };
+    }
+
+    // 3. Draft / Unscheduled: neither starts_at nor closes_at is set
+    if (!startsAtMs && !closesAtMs) {
+      return {
+        status: 'draft' as const,
+        label: 'פתוחה ללא תאריך',
+        badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700',
+        dotClass: 'bg-slate-400',
+        description: 'במאגר – ממתינה לשיבוץ מועד פרסום',
+        startsAtFormatted: null,
+        submissionsCloseFormatted: null,
+        closesAtFormatted: null,
+        isWeekly
+      };
+    }
+
+    // 4. Active (Live): starts_at has passed or is null, and closes_at is in the future
+    return {
+      status: 'active' as const,
+      label: 'פעילה באוויר',
+      badgeClass: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800',
+      dotClass: 'bg-emerald-500 animate-pulse',
+      description: closesAtMs ? `פתוחה להצבעות עד ${formatDateTime(t.closes_at, true)}` : 'פתוחה להצבעות',
+      startsAtFormatted: formatDateTime(t.starts_at) || formatDateTime(t.created_at),
+      submissionsCloseFormatted: formatDateTime(t.submissions_close_at),
+      closesAtFormatted: formatDateTime(t.closes_at, true),
+      isWeekly
+    };
+  };
+
+  const handleOpenManageTopic = (t: Topic) => {
+    setManagingTopic(t);
+    if (t.starts_at && new Date(t.starts_at).getTime() > Date.now()) {
+      const d = new Date(t.starts_at);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setScheduleLaunchAt(d.toISOString().slice(0, 16));
+    } else {
+      const target = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      target.setHours(8, 0, 0, 0);
+      target.setMinutes(target.getMinutes() - target.getTimezoneOffset());
+      setScheduleLaunchAt(target.toISOString().slice(0, 16));
+    }
+    setScheduleDurationDays(5);
+  };
+
+  const handleLaunchNow = async (targetTopic: Topic, durationDays = 5) => {
+    setIsProcessingAction(true);
     try {
-      const now = new Date();
-      const nowIso = now.toISOString();
-
-      // If another weekly topic is active, close it
-      if (activeWeekly) {
-        await updateTopic(activeWeekly.id, {
-          closes_at: nowIso,
-          submissions_close_at: nowIso
-        });
+      const isWeekly = (targetTopic.topic_type === 'weekly' || !targetTopic.topic_type);
+      if (isWeekly) {
+        const activeWeekly = topics.find(other => 
+          other.id !== targetTopic.id &&
+          (other.topic_type === 'weekly' || !other.topic_type) && 
+          (!other.closes_at || new Date(other.closes_at).getTime() > Date.now())
+        );
+        if (activeWeekly) {
+          const confirmSwitch = window.confirm(
+            `קיימת כבר זירה שבועית פעילה כעת ("${activeWeekly.title}").\nהאם לנעול אותה ולהעלות את הזירה "${targetTopic.title}" כמשאל השבועי המרכזי במקומה?`
+          );
+          if (!confirmSwitch) {
+            setIsProcessingAction(false);
+            return;
+          }
+          await updateTopic(activeWeekly.id, {
+            closes_at: new Date().toISOString(),
+            submissions_close_at: new Date().toISOString()
+          });
+        }
       }
 
-      // Activate target topic for next 7 days (and 48h for submissions)
+      const now = new Date();
+      const startsAt = now.toISOString();
       const submissionsClose = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
-      const closesAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const closesAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
       const updated = await updateTopic(targetTopic.id, {
-        topic_type: 'weekly',
+        starts_at: startsAt,
         submissions_close_at: submissionsClose,
         closes_at: closesAt
       });
 
       onTopicUpdated(updated);
-      onSelectTopic(targetTopic.id);
-      setActionSuccess(`הזירה "${targetTopic.title}" עלתה לאוויר בהצלחה כמשאל השבועי המרכזי! 🚀`);
+      setManagingTopic(null);
+      setActionSuccess(`הזירה "${targetTopic.title}" עלתה לאוויר בהצלחה! 🚀 חלון ההיגדים פתוח ל-48 שעות והמשאל ל-${durationDays} ימים.`);
       setTimeout(() => setActionSuccess(null), 5000);
     } catch (err: any) {
-      alert(err.message || 'שגיאה בהפעלת הזירה');
+      alert(err.message || 'שגיאה בהעלאת הזירה לאוויר');
+    } finally {
+      setIsProcessingAction(false);
     }
+  };
+
+  const handleApplySchedule = async (targetTopic: Topic) => {
+    if (!scheduleLaunchAt) {
+      alert('נא לבחור תאריך ושעה להעלאה לאוויר.');
+      return;
+    }
+
+    const launchDate = new Date(scheduleLaunchAt);
+    if (isNaN(launchDate.getTime())) {
+      alert('תאריך עלייה לאוויר אינו תקין.');
+      return;
+    }
+
+    setIsProcessingAction(true);
+    try {
+      const startsAt = launchDate.toISOString();
+      const submissionsClose = new Date(launchDate.getTime() + 48 * 60 * 60 * 1000).toISOString();
+      const closesAt = new Date(launchDate.getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString();
+
+      const updated = await updateTopic(targetTopic.id, {
+        starts_at: startsAt,
+        submissions_close_at: submissionsClose,
+        closes_at: closesAt
+      });
+
+      onTopicUpdated(updated);
+      setManagingTopic(null);
+      const formattedLaunch = launchDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      setActionSuccess(`התזמון נשמר בהצלחה! ⏳ הזירה מתוזמנת לעלות ב-${formattedLaunch}.`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בקביעת תזמון הזירה');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleKeepAsDraft = async (targetTopic: Topic) => {
+    setIsProcessingAction(true);
+    try {
+      const updated = await updateTopic(targetTopic.id, {
+        starts_at: null,
+        submissions_close_at: null,
+        closes_at: null
+      });
+
+      onTopicUpdated(updated);
+      setManagingTopic(null);
+      setActionSuccess(`הזירה "${targetTopic.title}" הועברה למאגר ללא תאריך. 📝`);
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בהעברת הזירה לטיוטה');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleUnpublishClose = async (targetTopic: Topic) => {
+    const confirmed = window.confirm(`האם להוריד מהאוויר ולנעול כעת את המשאל:\n"${targetTopic.title}"?\n\nההצבעות יינעלו מיידית והמשאל יסומן כמשאל שהסתיים.`);
+    if (!confirmed) return;
+
+    setIsProcessingAction(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const updated = await updateTopic(targetTopic.id, {
+        closes_at: nowIso,
+        submissions_close_at: nowIso
+      });
+
+      onTopicUpdated(updated);
+      setManagingTopic(null);
+      setActionSuccess(`המשאל "${targetTopic.title}" הורד מהאוויר וננעל בהצלחה! 🔒`);
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בהורדת המשאל מהאוויר');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleLaunchAsWeekly = async (targetTopic: Topic) => {
+    await handleLaunchNow(targetTopic, 5);
   };
 
   const handleToggleTopicType = async (t: Topic) => {
@@ -984,305 +1180,629 @@ export const AdminView: React.FC<AdminViewProps> = ({
       </div>
       )}
 
-      {/* TAB 2: TOPIC CONTROL & MANAGEMENT PANEL */}
+      {/* TAB 2: TOPIC CONTROL & MASTER TOPICS TABLE */}
       {adminSubTab === 'topics' && (
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
-                <Settings className="w-5 h-5" />
-              </span>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                ניהול זירת הדיון הפעילה
-              </h2>
+      <div className="space-y-6">
+        {/* Header and Controls */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5 transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                  <Layers className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                  מרכז ניהול, בקרה ותזמון זירות דיון
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                טבלת שליטה מרכזית: תזמון מועדי פרסום, ספירת 48 שעות להיגדים ו-5 ימים להצבעות, וניהול הסטטוסים
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-              ארגון: <span className="font-bold text-slate-900 dark:text-slate-200">{currentTopic.organization}</span>
-            </p>
+
+            <button
+              onClick={handleOpenNewTopicModal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-md transition self-start sm:self-auto cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>פתח זירה חדשה</span>
+            </button>
           </div>
 
-          <button
-            onClick={handleOpenNewTopicModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-sm transition self-start sm:self-auto"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>פתח זירה חדשה</span>
-          </button>
-        </div>
-
-        {/* Current Topic Card with Edit/Delete Actions */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                  זירה במיקוד: {currentTopic.id}
-                </span>
-
-                {currentTopic.topic_type === 'special' ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-800 flex items-center gap-1">
-                    ⚡ זירה שלא מן המניין (בזק)
+          {/* Current Focused Topic Banner in Tab 2 */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">זירה במוקד העורך כעת:</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-white">{currentTopic.title}</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                    currentTopic.topic_type === 'special' 
+                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
+                      : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  }`}>
+                    {currentTopic.topic_type === 'special' ? '⚡ שלא מן המניין' : '📅 שבועית רגילה'}
                   </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex items-center gap-1">
-                    📅 זירה שבועית רגילה
-                  </span>
-                )}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  ארגון: {currentTopic.organization} | נאספו {currentTopic.stats?.totalVotes || 0} הצבעות
+                </div>
+              </div>
+            </div>
 
-                {/* Closing status badge */}
-                {(() => {
-                  const closing = getClosingStatus(currentTopic.closes_at);
-                  if (!closing) return null;
-                  return closing.isPast ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 text-[11px] font-bold border border-rose-300 dark:border-rose-800 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-rose-600 dark:text-rose-400" />
-                      <span>המשאל נסגר ב-{closing.formatted}</span>
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 text-[11px] font-bold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                      <span>מועד סגירה: {closing.formatted}</span>
-                    </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleOpenManageTopic(currentTopic)}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>ניהול ותזמון זירה זו</span>
+              </button>
+              <button
+                onClick={() => setAdminSubTab('moderation')}
+                className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <span>עבור לאישור היגדים</span>
+                <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar and Live Counters */}
+          <div className="space-y-3 pt-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs font-bold">
+                {[
+                  { key: 'all', label: 'כל הזירות', count: topics.length, icon: Layers },
+                  { key: 'active', label: 'פעילות באוויר', count: topics.filter(t => getTopicLifecycle(t).status === 'active').length, icon: Radio, activeColor: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800' },
+                  { key: 'scheduled', label: 'מתוזמנות', count: topics.filter(t => getTopicLifecycle(t).status === 'scheduled').length, icon: CalendarClock, activeColor: 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-800' },
+                  { key: 'draft', label: 'פתוחות ללא תאריך', count: topics.filter(t => getTopicLifecycle(t).status === 'draft').length, icon: FileText, activeColor: 'text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700' },
+                  { key: 'closed', label: 'זירות שנסגרו', count: topics.filter(t => getTopicLifecycle(t).status === 'closed').length, icon: Lock, activeColor: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800' }
+                ].map(tab => {
+                  const isSelected = topicFilter === tab.key;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setTopicFilter(tab.key as any)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition cursor-pointer whitespace-nowrap ${
+                        isSelected 
+                          ? tab.activeColor || 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-700 shadow-xs'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{tab.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                        isSelected 
+                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    </button>
                   );
-                })()}
-                
-                {/* Editable vs Locked Badge */}
-                {isCurrentTopicEditable ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
-                    <Unlock className="w-3 h-3" />
-                    <span>0 תגובות – פתוח לעריכה</span>
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold border border-slate-300 dark:border-slate-700 flex items-center gap-1" title="זירה זו כבר צברה תגובות מן הציבור ולכן נעולה לעריכה כדי למנוע הטיית הצבעות שכבר נאספו">
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>נרשמו {currentVotesCount} הצבעות – נעול לעריכה</span>
-                  </span>
+                })}
+              </div>
+
+              {/* Search Box */}
+              <div className="relative w-full md:w-64">
+                <input
+                  type="text"
+                  value={topicSearchQuery}
+                  onChange={(e) => setTopicSearchQuery(e.target.value)}
+                  placeholder="חיפוש לפי כותרת או ארגון..."
+                  className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400 transition"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                {topicSearchQuery && (
+                  <button
+                    onClick={() => setTopicSearchQuery('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-snug">
-                {currentTopic.title}
-              </h3>
-              {currentTopic.subtitle && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {currentTopic.subtitle}
-                </p>
-              )}
             </div>
 
-            {/* Action Buttons for Topic: Export, Edit & Delete */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
-              {/* Export to CSV Button */}
-              <a
-                href={`/api/topics/${encodeURIComponent(currentTopic.id)}/export`}
-                download={`consensus-${(currentTopic.slug || currentTopic.id).replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition"
-                title="הורדת קובץ אקסל (CSV בקידוד UTF-8) של כל תוצאות ההצבעה, ההיגדים והפילוחים"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>ייצוא ל-Excel / CSV</span>
-              </a>
-
-              {/* Quick Toggle Topic Type Button */}
-              <button
-                onClick={() => handleToggleTopicType(currentTopic)}
-                className="px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-                title="החלף סוג זירה בין שבועית רגילה לזירה שלא מן המניין"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{currentTopic.topic_type === 'special' ? 'העבר ל-📅 שבועית' : 'העבר ל-⚡ שלא מן המניין'}</span>
-              </button>
-
-              {/* Edit Topic Button */}
-              <button
-                onClick={() => handleOpenEditModal(currentTopic)}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-                title="ערוך הגדרות זירה (סוג זירה, מועדי סגירה, מצב סינון)"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>ערוך הגדרות זירה</span>
-              </button>
-
-              {/* Delete Topic Button */}
-              <button
-                onClick={() => handleDeleteTopic(currentTopic.id, currentTopic.title)}
-                disabled={topics.length <= 1}
-                className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-40"
-                title={topics.length <= 1 ? 'לא ניתן למחוק את הזירה היחידה' : 'מחק זירה זו וכל ההצבעות עליה'}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>מחק זירה</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ALL TOPICS OVERVIEW & SWITCHER TABLE */}
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-slate-400" />
-              <span>כלל זירות הדיון במערכת ({topics.length}):</span>
-            </span>
-          </div>
-
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
-            {topics.map(t => {
-              const isActive = t.id === currentTopic.id;
-              const tVotes = t.stats?.totalVotes || 0;
-              const isEditable = tVotes === 0;
-              const isCurrentlyLiveWeekly = (t.topic_type === 'weekly' || !t.topic_type) && (!t.closes_at || new Date(t.closes_at).getTime() > Date.now());
-
-              return (
-                <div 
-                  key={t.id} 
-                  className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
-                    isActive ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t.organization}</span>
-                      {isActive && (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-black bg-amber-400 text-slate-950">
-                          זירה פעילה
-                        </span>
-                      )}
-                      {t.topic_type === 'special' ? (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-black bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                          ⚡ שלא מן המניין
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                          📅 שבועית
-                        </span>
-                      )}
-                      {(() => {
-                        const closing = getClosingStatus(t.closes_at);
-                        if (!closing) return null;
-                        return closing.isPast ? (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold flex items-center gap-0.5">
-                            <Clock className="w-2.5 h-2.5" /> נסגר
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-0.5" title={`נסגר ב-${closing.formatted}`}>
-                            <Clock className="w-2.5 h-2.5" /> עד {closing.shortDate}
-                          </span>
-                        );
-                      })()}
-                      {isEditable ? (
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
-                          <Unlock className="w-2.5 h-2.5" /> 0 תגובות
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                          <Lock className="w-2.5 h-2.5" /> {tVotes} הצבעות
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                      {t.title}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    {/* Launch as Live Weekly Poll button */}
-                    {!isCurrentlyLiveWeekly ? (
-                      <button
-                        onClick={() => handleLaunchAsWeekly(t)}
-                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer"
-                        title="העלה זירה זו לאוויר כמשאל השבועי המרכזי של 'ערב ערב באילת'"
-                      >
-                        <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span>העלה כמשאל שבועי 🚀</span>
-                      </button>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black flex items-center gap-1 shadow-2xs">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>המשאל השבועי שבאוויר</span>
-                      </span>
-                    )}
-
-                    {!isActive ? (
-                      <button
-                        onClick={() => onSelectTopic(t.id)}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
-                        title="בחר זירה זו כדי לצפות ולנהל את ההיגדים והדוחות שלה באדמין"
-                      >
-                        נהל באדמין
-                      </button>
-                    ) : (
-                      <span className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold">
-                        בניהול כעת
-                      </span>
-                    )}
-
-                    {/* Quick Toggle Topic Type in row */}
-                    <button
-                      onClick={() => handleToggleTopicType(t)}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                        t.topic_type === 'special'
-                          ? 'bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                          : 'bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                      }`}
-                      title={t.topic_type === 'special' ? 'החלף סוג זירה ל-שבועית רגילה' : 'החלף סוג זירה ל-מיוחדת שלא מן המניין'}
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>{t.topic_type === 'special' ? 'העבר לשבועית 📅' : 'העבר לשלא מן המניין ⚡'}</span>
-                    </button>
-
-                    {/* Quick Close / Reopen Toggle in row */}
+            {/* MASTER TOPICS TABLE */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
+              <div className="overflow-x-auto">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      <th className="py-3 px-4">כותרת הזירה וגוף מזמין</th>
+                      <th className="py-3 px-3">סוג זירה</th>
+                      <th className="py-3 px-3">סטטוס מחזור חיים</th>
+                      <th className="py-3 px-3">לוח זמנים (עלייה ⟵ נעילת היגדים ⟵ סגירה)</th>
+                      <th className="py-3 px-3 text-center">הצבעות והיגדים</th>
+                      <th className="py-3 px-4 text-center">פעולות וניהול</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     {(() => {
-                      const closing = getClosingStatus(t.closes_at);
-                      return (
-                        <button
-                          onClick={() => handleToggleTopicClosed(t)}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                            closing?.isPast
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                          }`}
-                          title={closing?.isPast ? 'פתח מחדש את המשאל להצבעות (הארך לשבוע נוסף)' : 'נעל וסגור את המשאל כעת'}
-                        >
-                          {closing?.isPast ? (
-                            <>
-                              <Unlock className="w-3 h-3" />
-                              <span>פתח מחדש</span>
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="w-3 h-3" />
-                              <span>נעל משאל</span>
-                            </>
-                          )}
-                        </button>
-                      );
+                      const list = topics.filter(t => {
+                        const lc = getTopicLifecycle(t);
+                        if (topicFilter !== 'all' && lc.status !== topicFilter) return false;
+                        if (topicSearchQuery.trim()) {
+                          const q = topicSearchQuery.toLowerCase();
+                          const m1 = t.title?.toLowerCase().includes(q);
+                          const m2 = t.organization?.toLowerCase().includes(q);
+                          const m3 = t.subtitle?.toLowerCase().includes(q);
+                          if (!m1 && !m2 && !m3) return false;
+                        }
+                        return true;
+                      });
+
+                      if (list.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="py-12 text-center text-slate-400">
+                              <Layers className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                              <p className="font-bold">לא נמצאו זירות תואמות לסינון הנבחר</p>
+                              {topicFilter !== 'all' && (
+                                <button
+                                  onClick={() => setTopicFilter('all')}
+                                  className="mt-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                                >
+                                  הצג את כל הזירות
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return list.map(t => {
+                        const lc = getTopicLifecycle(t);
+                        const isCurrent = t.id === currentTopic.id;
+                        const tVotes = t.stats?.totalVotes || 0;
+                        const tStatements = t.stats?.statementsCount || 0;
+
+                        return (
+                          <tr 
+                            key={t.id}
+                            className={`transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer ${
+                              isCurrent ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''
+                            }`}
+                            onClick={() => handleOpenManageTopic(t)}
+                          >
+                            {/* Column 1: Title & Organization */}
+                            <td className="py-3.5 px-4 min-w-[240px] max-w-[320px]">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {isCurrent && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-400 text-slate-950 shadow-2xs">
+                                    במיקוד כעת
+                                  </span>
+                                )}
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                  {t.organization}
+                                </span>
+                              </div>
+                              <div className="font-black text-slate-900 dark:text-white leading-snug line-clamp-2">
+                                {t.title}
+                              </div>
+                              {t.subtitle && (
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                                  {t.subtitle}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Column 2: Topic Type with Quick Toggle */}
+                            <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1 ${
+                                  t.topic_type === 'special'
+                                    ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                    : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                }`}>
+                                  {t.topic_type === 'special' ? '⚡ שלא מן המניין' : '📅 שבועית'}
+                                </span>
+                                <button
+                                  onClick={() => handleToggleTopicType(t)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                  title="החלף סוג זירה (שבועית ⟷ שלא מן המניין)"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Column 3: Lifecycle Status Badge */}
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${lc.badgeClass}`}>
+                                <span className={`w-2 h-2 rounded-full ${lc.dotClass}`} />
+                                <span>{lc.label}</span>
+                              </span>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                {lc.description}
+                              </div>
+                            </td>
+
+                            {/* Column 4: Schedule Timeline */}
+                            <td className="py-3.5 px-3 min-w-[200px]">
+                              {lc.status === 'draft' ? (
+                                <span className="text-[11px] text-slate-400 italic">
+                                  טרם נקבע מועד שידור (במאגר)
+                                </span>
+                              ) : (
+                                <div className="space-y-1 text-[11px]">
+                                  <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                    <Play className="w-2.5 h-2.5 text-emerald-500 fill-current" />
+                                    <span className="text-slate-500 dark:text-slate-400">עלייה:</span>
+                                    <span className="font-bold">{lc.startsAtFormatted || 'מיידי'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                    <Clock className="w-2.5 h-2.5 text-amber-500" />
+                                    <span className="text-slate-500 dark:text-slate-400">נעילת היגדים:</span>
+                                    <span className="font-bold">{lc.submissionsCloseFormatted || 'פתוח'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                    <Lock className="w-2.5 h-2.5 text-rose-500" />
+                                    <span className="text-slate-500 dark:text-slate-400">סגירת משאל:</span>
+                                    <span className="font-bold">{lc.closesAtFormatted || 'ללא הגבלה'}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Column 5: Votes & Statements */}
+                            <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                              <div className="inline-flex flex-col items-center">
+                                <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1">
+                                  <Users className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{tVotes}</span>
+                                </span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  {tStatements} היגדים
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Column 6: Action Buttons */}
+                            <td className="py-3.5 px-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {/* Open Lifecycle & Schedule Modal */}
+                                <button
+                                  onClick={() => handleOpenManageTopic(t)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                  title="ניהול סטטוס, העלאה לאוויר, הורדה ותזמון"
+                                >
+                                  <CalendarClock className="w-3.5 h-3.5" />
+                                  <span>ניהול ותזמון</span>
+                                </button>
+
+                                {/* Select for Admin Workspace */}
+                                {!isCurrent ? (
+                                  <button
+                                    onClick={() => onSelectTopic(t.id)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
+                                    title="בחר זירה זו כדי לנהל את ההיגדים שלה"
+                                  >
+                                    בחר ללוח
+                                  </button>
+                                ) : (
+                                  <span className="px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold">
+                                    נבחר
+                                  </span>
+                                )}
+
+                                {/* Edit Topic Settings (Modal) */}
+                                <button
+                                  onClick={() => handleOpenEditModal(t)}
+                                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+                                  title="ערוך הגדרות זירה (טקסטים, כובעים, סינון)"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* Delete Topic */}
+                                <button
+                                  onClick={() => handleDeleteTopic(t.id, t.title)}
+                                  disabled={topics.length <= 1}
+                                  className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 transition disabled:opacity-30 cursor-pointer"
+                                  title="מחק זירה זו"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
                     })()}
-
-                    {/* Edit Topic Settings Button (Always enabled!) */}
-                    <button
-                      onClick={() => handleOpenEditModal(t)}
-                      className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 transition cursor-pointer"
-                      title="ערוך הגדרות זירה (סוג זירה, מועדי סגירה ומצב סינון)"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteTopic(t.id, t.title)}
-                      disabled={topics.length <= 1}
-                      className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 transition disabled:opacity-30"
-                      title="מחק זירה זו"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      )}
+
+      {/* MODAL: TOPIC LIFECYCLE & SCHEDULING MANAGEMENT */}
+      {managingTopic && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto space-y-6 transition-colors text-right">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTopicLifecycle(managingTopic).badgeClass}`}>
+                    <span className={`inline-block w-2 h-2 rounded-full ${getTopicLifecycle(managingTopic).dotClass} ml-1`} />
+                    {getTopicLifecycle(managingTopic).label}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                    managingTopic.topic_type === 'special'
+                      ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                      : 'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                  }`}>
+                    {managingTopic.topic_type === 'special' ? '⚡ שלא מן המניין' : '📅 שבועית רגילה'}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {managingTopic.stats?.totalVotes || 0} הצבעות רשומות
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-snug">
+                  {managingTopic.title}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  ארגון: <span className="font-bold text-slate-700 dark:text-slate-300">{managingTopic.organization}</span>
+                </p>
+              </div>
+
+              <button
+                onClick={() => setManagingTopic(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Action Cards Grid */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                בחר פעולה במחזור חיי הזירה:
+              </h4>
+
+              {/* CARD 1: Publish Now */}
+              <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-emerald-500 text-white shadow-xs">
+                      <Zap className="w-4 h-4 fill-current" />
+                    </span>
+                    <div>
+                      <h5 className="text-sm font-black text-emerald-950 dark:text-emerald-100">
+                        1. העלאה מיידית לאוויר (פעילה מעכשיו)
+                      </h5>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300/80 mt-0.5">
+                        פותח את המשאל מיידית להצבעות, מקצה 48 שעות להוספת היגדים, ונועל להצבעות בעוד 5 ימים
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                  <div className="text-[11px] text-emerald-800 dark:text-emerald-200 font-medium">
+                    ⏱️ תאריך ושעה יוגדרו כעת, שלב היגדים: +48 שעות, סגירה סופית: +5 ימים
+                  </div>
+                  <button
+                    onClick={() => handleLaunchNow(managingTopic, 5)}
+                    disabled={isProcessingAction}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>העלה לאוויר עכשיו 🚀</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CARD 2: Schedule for Future Date */}
+              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/80 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs">
+                    <CalendarClock className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h5 className="text-sm font-black text-indigo-950 dark:text-indigo-100">
+                      2. קביעת תזמון עתידי (תאריך ושעת עלייה לאוויר)
+                    </h5>
+                    <p className="text-xs text-indigo-700 dark:text-indigo-300/80 mt-0.5">
+                      המערכת תחשב אוטומטית ממועד זה בדיוק 48 שעות לנעילת היגדים ו-5 ימים לסגירת המשאל
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date & Time Picker */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
+                      תאריך ושעה להעלאה לאוויר:
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={scheduleLaunchAt}
+                      onChange={(e) => setScheduleLaunchAt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 text-xs text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-400 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-900 dark:text-indigo-200 mb-1">
+                      משך המשאל להצבעות:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setScheduleDurationDays(5)}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          scheduleDurationDays === 5
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
+                        }`}
+                      >
+                        5 ימים (מומלץ)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScheduleDurationDays(7)}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          scheduleDurationDays === 7
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50'
+                        }`}
+                      >
+                        7 ימים (שבוע)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Calculated Schedule Box */}
+                {scheduleLaunchAt && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5 shadow-2xs">
+                    <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>לוח זמנים מחושב אוטומטית:</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] pt-1">
+                      <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/40">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[10px]">🚀 עלייה לאוויר:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {formatDateTime(scheduleLaunchAt, true)}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/40">
+                        <span className="text-amber-700 dark:text-amber-400 block text-[10px]">⏳ נעילת היגדים (+48ש):</span>
+                        <span className="font-bold text-amber-900 dark:text-amber-200">
+                          {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + 48 * 60 * 60 * 1000).toISOString(), true)}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/40">
+                        <span className="text-rose-700 dark:text-rose-400 block text-[10px]">🔒 סגירת המשאל (+{scheduleDurationDays}ימים):</span>
+                        <span className="font-bold text-rose-900 dark:text-rose-200">
+                          {formatDateTime(new Date(new Date(scheduleLaunchAt).getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString(), true)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => handleApplySchedule(managingTopic)}
+                    disabled={isProcessingAction || !scheduleLaunchAt}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>שמור תזמון עתידי ⏳</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CARD 3 & 4: Draft vs Unpublish */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Draft: Unscheduled */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <FileText className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                        3. השאר ברשימה ללא תאריך (טיוטה)
+                      </h5>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        מאפס תאריכי שידור ומשאיר את הזירה במאגר מוכנה לשיבוץ
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleKeepAsDraft(managingTopic)}
+                    disabled={isProcessingAction}
+                    className="w-full py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer"
+                  >
+                    השאר במאגר ללא תאריך 📝
+                  </button>
+                </div>
+
+                {/* Close / Unpublish */}
+                <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-rose-500 text-white">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h5 className="text-xs font-black text-rose-950 dark:text-rose-100">
+                        4. הורדה מהאוויר / נעילת המשאל
+                      </h5>
+                      <p className="text-[11px] text-rose-700 dark:text-rose-300/80">
+                        סוגר ונועל את המשאל מיידית להצבעות (מעביר ל"נסגרה")
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleUnpublishClose(managingTopic)}
+                    disabled={isProcessingAction}
+                    className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer"
+                  >
+                    נעל והורד מהאוויר כעת 🔒
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Settings & Navigation in Modal */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">שינוי סוג זירה:</span>
+                <button
+                  onClick={async () => {
+                    await handleToggleTopicType(managingTopic);
+                    const updatedT = topics.find(t => t.id === managingTopic.id);
+                    if (updatedT) setManagingTopic({ ...updatedT, topic_type: updatedT.topic_type === 'special' ? 'weekly' : 'special' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>{managingTopic.topic_type === 'special' ? 'העבר ל-📅 שבועית רגילה' : 'העבר ל-⚡ שלא מן המניין'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const t = managingTopic;
+                    setManagingTopic(null);
+                    handleOpenEditModal(t);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>ערוך הגדרות זירה</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTopic(managingTopic.id);
+                    setManagingTopic(null);
+                    setAdminSubTab('moderation');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>בחר ללוח ונהל היגדים ➔</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
       )}
 
       {/* TAB 3: EMBED SNIPPET GENERATOR */}

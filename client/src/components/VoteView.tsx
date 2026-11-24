@@ -256,13 +256,18 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
   // Active topics calculation for Arena Switcher
   const nowMs = Date.now();
+  const isTopicLive = (t: Topic) => {
+    if (t.closes_at && new Date(t.closes_at).getTime() <= nowMs) return false;
+    if (t.starts_at && new Date(t.starts_at).getTime() > nowMs) return false;
+    if (!t.starts_at && !t.closes_at && (t.stats?.totalVotes || 0) === 0) return false;
+    return true;
+  };
+
   const activeWeeklyTopic = (topics || []).find((t: Topic) => 
-    (t.topic_type === 'weekly' || !t.topic_type) && 
-    (!t.closes_at || new Date(t.closes_at).getTime() > nowMs)
+    (t.topic_type === 'weekly' || !t.topic_type) && isTopicLive(t)
   );
   const activeSpecialTopics = (topics || []).filter((t: Topic) => 
-    t.topic_type === 'special' && 
-    (!t.closes_at || new Date(t.closes_at).getTime() > nowMs)
+    t.topic_type === 'special' && isTopicLive(t)
   );
   const hasMultipleTopics = (topics || []).length > 1;
   const hasParallelSpecial = activeSpecialTopics.length > 0;
@@ -381,8 +386,8 @@ export const VoteView: React.FC<VoteViewProps> = ({
               </button>
             ))}
 
-            {/* If there are no special topics yet, but other topics exist */}
-            {activeSpecialTopics.length === 0 && (topics || []).filter(t => t.id !== activeWeeklyTopic?.id).slice(0, 1).map(other => (
+            {/* If there are no special topics yet, but other live topics exist */}
+            {activeSpecialTopics.length === 0 && (topics || []).filter(t => t.id !== activeWeeklyTopic?.id && isTopicLive(t)).slice(0, 1).map(other => (
               <button
                 key={other.id}
                 type="button"

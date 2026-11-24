@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.topics (
   topic_type TEXT NOT NULL DEFAULT 'weekly' CHECK (topic_type IN ('weekly', 'special')),
   moderation_mode TEXT NOT NULL DEFAULT 'batch_approval' CHECK (moderation_mode IN ('batch_approval', 'auto_publish', 'instant_publish')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  starts_at TIMESTAMPTZ,
   submissions_close_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now() + interval '48 hours'),
   closes_at TIMESTAMPTZ
 );
@@ -27,6 +28,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='moderation_mode') THEN
     ALTER TABLE public.topics ADD COLUMN moderation_mode TEXT NOT NULL DEFAULT 'batch_approval';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='starts_at') THEN
+    ALTER TABLE public.topics ADD COLUMN starts_at TIMESTAMPTZ;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='submissions_close_at') THEN
     ALTER TABLE public.topics ADD COLUMN submissions_close_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now() + interval '48 hours');

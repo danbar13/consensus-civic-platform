@@ -122,6 +122,7 @@ export function initDatabase() {
       topic_type TEXT NOT NULL DEFAULT 'weekly',
       moderation_mode TEXT NOT NULL DEFAULT 'batch_approval',
       created_at TEXT NOT NULL,
+      starts_at TEXT,
       submissions_close_at TEXT,
       closes_at TEXT
     );
@@ -183,6 +184,9 @@ export function initDatabase() {
   } catch (err) {}
   try {
     db.exec('ALTER TABLE topics ADD COLUMN submissions_close_at TEXT;');
+  } catch (err) {}
+  try {
+    db.exec('ALTER TABLE topics ADD COLUMN starts_at TEXT;');
   } catch (err) {}
 
   // Migrate statements columns

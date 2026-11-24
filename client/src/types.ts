@@ -16,6 +16,7 @@ export interface Topic {
   topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
   created_at: string;
+  starts_at?: string | null;
   submissions_close_at?: string | null;
   closes_at?: string | null;
   stats?: {

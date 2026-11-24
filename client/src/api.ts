@@ -226,6 +226,7 @@ export async function createTopic(data: {
   initialStatements: string[];
   topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
+  starts_at?: string | null;
   submissions_close_at?: string | null;
   closes_at?: string | null;
   close_previous_weekly?: boolean;
@@ -251,6 +252,7 @@ export async function updateTopic(id: string, data: {
   groups?: { id: string; label: string; color: string }[];
   topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
+  starts_at?: string | null;
   submissions_close_at?: string | null;
   closes_at?: string | null;
 }): Promise<Topic> {

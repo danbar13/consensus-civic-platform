@@ -164,6 +164,7 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
       initialStatements, 
       topic_type, 
       moderation_mode, 
+      starts_at,
       submissions_close_at, 
       closes_at,
       close_previous_weekly 
@@ -229,6 +230,7 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
       topic_type: targetTopicType,
       moderation_mode: moderation_mode || 'batch_approval',
       created_at: now,
+      starts_at: starts_at || null,
       submissions_close_at: submissions_close_at || defaultSubmissionsClose,
       closes_at: closes_at || null
     });
@@ -261,7 +263,7 @@ app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
     const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
-    const { title, subtitle, organization, category, groups, topic_type, moderation_mode, submissions_close_at, closes_at } = req.body;
+    const { title, subtitle, organization, category, groups, topic_type, moderation_mode, starts_at, submissions_close_at, closes_at } = req.body;
 
     // Check if structural fields are being changed when topic already has votes
     const structuralChangeRequested = (title && title !== topic.title) || 
@@ -286,6 +288,7 @@ app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
       groups,
       topic_type,
       moderation_mode,
+      starts_at,
       submissions_close_at,
       closes_at
     });
