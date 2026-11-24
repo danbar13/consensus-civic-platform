@@ -384,6 +384,50 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
+  const handleLaunchAsWeekly = async (targetTopic: Topic) => {
+    const activeWeekly = topics.find(t => 
+      t.id !== targetTopic.id &&
+      (t.topic_type === 'weekly' || !t.topic_type) && 
+      (!t.closes_at || new Date(t.closes_at).getTime() > Date.now())
+    );
+
+    const promptMsg = activeWeekly
+      ? `האם להעלות את הזירה:\n"${targetTopic.title}"\nכמשאל השבועי הפעיל כעת של "ערב ערב באילת"?\n\nשים לב: פעולה זו תנעל/תסגור אוטומטית את המשאל השבועי הקודם ("${activeWeekly.title}") ותפתח חלון של 48 שעות להצעות קהילה ושבוע להצבעות עד גיליון יום חמישי הבא.`
+      : `האם להעלות את הזירה:\n"${targetTopic.title}"\nכמשאל השבועי הפעיל כעת של "ערב ערב באילת"?\n\nייפתח חלון של 48 שעות להצעות קהילה ושבוע להצבעות עד יום חמישי הבא.`;
+
+    if (!window.confirm(promptMsg)) return;
+
+    try {
+      const now = new Date();
+      const nowIso = now.toISOString();
+
+      // If another weekly topic is active, close it
+      if (activeWeekly) {
+        await updateTopic(activeWeekly.id, {
+          closes_at: nowIso,
+          submissions_close_at: nowIso
+        });
+      }
+
+      // Activate target topic for next 7 days (and 48h for submissions)
+      const submissionsClose = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+      const closesAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const updated = await updateTopic(targetTopic.id, {
+        topic_type: 'weekly',
+        submissions_close_at: submissionsClose,
+        closes_at: closesAt
+      });
+
+      onTopicUpdated(updated);
+      onSelectTopic(targetTopic.id);
+      setActionSuccess(`הזירה "${targetTopic.title}" עלתה לאוויר בהצלחה כמשאל השבועי המרכזי! 🚀`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בהפעלת הזירה');
+    }
+  };
+
   const handleCategoryChange = (cat: 'municipal' | 'mediation' | 'committee' | 'consulting') => {
     setNewTopicCategory(cat);
     loadSuggestions(cat, newTopicTitle);
@@ -1017,6 +1061,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               const isActive = t.id === currentTopic.id;
               const tVotes = t.stats?.totalVotes || 0;
               const isEditable = tVotes === 0;
+              const isCurrentlyLiveWeekly = (t.topic_type === 'weekly' || !t.topic_type) && (!t.closes_at || new Date(t.closes_at).getTime() > Date.now());
 
               return (
                 <div 
@@ -1070,14 +1115,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!isActive && (
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {/* Launch as Live Weekly Poll button */}
+                    {!isCurrentlyLiveWeekly ? (
+                      <button
+                        onClick={() => handleLaunchAsWeekly(t)}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer"
+                        title="העלה זירה זו לאוויר כמשאל השבועי המרכזי של 'ערב ערב באילת'"
+                      >
+                        <Zap className="w-3.5 h-3.5 fill-current" />
+                        <span>העלה כמשאל שבועי 🚀</span>
+                      </button>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-black flex items-center gap-1 shadow-2xs">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>המשאל השבועי שבאוויר</span>
+                      </span>
+                    )}
+
+                    {!isActive ? (
                       <button
                         onClick={() => onSelectTopic(t.id)}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
+                        title="בחר זירה זו כדי לצפות ולנהל את ההיגדים והדוחות שלה באדמין"
                       >
-                        בחר זירה
+                        נהל באדמין
                       </button>
+                    ) : (
+                      <span className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold">
+                        בניהול כעת
+                      </span>
                     )}
 
                     {isEditable ? (
