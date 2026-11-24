@@ -478,17 +478,36 @@ export async function cloudGetStatements(topicId, status) {
         await supabase
           .from('statements')
           .update({ status: 'approved' })
-          .eq('status', 'scheduled_auto')
+          .in('status', ['scheduled_auto', 'pending'])
+          .not('auto_publish_at', 'is', null)
           .lte('auto_publish_at', nowIso);
       } catch {}
 
       let query = supabase.from('statements').select('*').eq('topic_id', topicId);
       if (status && status !== 'all') {
-        query = query.eq('status', status);
+        if (status === 'pending_approval' || status === 'pending') {
+          query = query.in('status', ['pending', 'pending_approval']);
+        } else if (status === 'scheduled_auto') {
+          query = query.in('status', ['scheduled_auto', 'pending']).not('auto_publish_at', 'is', null);
+        } else {
+          query = query.eq('status', status);
+        }
       }
       query = query.order('id', { ascending: true });
       const { data, error } = await query;
-      if (!error && data) return data;
+      if (!error && data) {
+        return data.map(st => {
+          let mappedStatus = st.status;
+          if (st.status === 'pending') {
+            mappedStatus = st.auto_publish_at ? 'scheduled_auto' : 'pending_approval';
+          }
+          return {
+            ...st,
+            status: mappedStatus,
+            is_anchor: Boolean(st.is_anchor || st.is_seed)
+          };
+        });
+      }
     } catch (err) {
       console.warn('Supabase getStatements failed, falling back to SQLite:', err.message);
     }
@@ -506,11 +525,20 @@ export async function cloudGetStatements(topicId, status) {
   let query = 'SELECT * FROM statements WHERE topic_id = ?';
   const params = [topicId];
   if (status && status !== 'all') {
-    query += ' AND status = ?';
-    params.push(status);
+    if (status === 'pending_approval') {
+      query += " AND (status = 'pending_approval' OR status = 'pending')";
+    } else {
+      query += ' AND status = ?';
+      params.push(status);
+    }
   }
   query += ' ORDER BY id ASC';
-  return db.prepare(query).all(...params);
+  const rows = db.prepare(query).all(...params);
+  return rows.map(st => ({
+    ...st,
+    status: (st.status === 'pending') ? (st.auto_publish_at ? 'scheduled_auto' : 'pending_approval') : st.status,
+    is_anchor: Boolean(st.is_anchor || st.is_seed)
+  }));
 }
 
 export async function cloudCountUserSubmissions(topicId, sessionId, deviceFingerprint) {
@@ -531,7 +559,20 @@ export async function cloudCountUserSubmissions(topicId, sessionId, deviceFinger
       }
 
       const { count: c, error } = await query;
-      if (!error && c !== null) return c;
+      if (!error && c !== null) {
+        try {
+          const row = db.prepare(`
+            SELECT COUNT(*) as c FROM statements 
+            WHERE topic_id = ? AND (
+              (session_id IS NOT NULL AND session_id = ?) OR 
+              (device_fingerprint IS NOT NULL AND device_fingerprint = ?)
+            )
+          `).get(topicId, sessionId || '', deviceFingerprint || '');
+          return Math.max(c, row?.c || 0);
+        } catch {
+          return c;
+        }
+      }
     } catch {}
   }
 
@@ -565,13 +606,18 @@ export async function cloudCreateStatement(stData) {
         nextId = (maxRow?.id || 0) + 1;
       }
 
+      // Map status for Supabase constraint (CHECK (status IN ('approved', 'pending', 'rejected')))
+      const supabaseStatus = (stData.status === 'pending_approval' || stData.status === 'scheduled_auto')
+        ? 'pending'
+        : (stData.status || 'approved');
+
       const insertPayload = {
         id: nextId,
         topic_id: stData.topic_id,
         text: stData.text,
         author_group: stData.author_group || 'general',
         is_seed: Boolean(stData.is_seed),
-        status: stData.status || 'approved',
+        status: supabaseStatus,
         auto_publish_at: stData.auto_publish_at || null,
         session_id: stData.session_id || null,
         device_fingerprint: stData.device_fingerprint || null,
@@ -585,18 +631,23 @@ export async function cloudCreateStatement(stData) {
         .single();
 
       if (!error && data) {
+        const resultData = {
+          ...data,
+          status: stData.status || data.status,
+          is_anchor: Boolean(data.is_anchor || data.is_seed)
+        };
         // Also cache to local SQLite
         try {
           db.prepare(`
             INSERT OR REPLACE INTO statements (id, topic_id, text, author_group, is_seed, status, auto_publish_at, session_id, device_fingerprint, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
-            data.id, data.topic_id, data.text, data.author_group, 
-            data.is_seed ? 1 : 0, data.status, data.auto_publish_at || null,
-            data.session_id || null, data.device_fingerprint || null, data.created_at
+            resultData.id, resultData.topic_id, resultData.text, resultData.author_group, 
+            resultData.is_seed ? 1 : 0, resultData.status, resultData.auto_publish_at || null,
+            resultData.session_id || null, resultData.device_fingerprint || null, resultData.created_at
           );
         } catch {}
-        return data;
+        return resultData;
       }
       if (error) {
         console.warn('Supabase createStatement error:', error.message || error);
@@ -629,7 +680,9 @@ export async function cloudUpdateStatement({ id, status, text }) {
   if (isSupabaseActive && supabase) {
     try {
       const updateData = {};
-      if (status !== undefined) updateData.status = status;
+      if (status !== undefined) {
+        updateData.status = (status === 'pending_approval' || status === 'scheduled_auto') ? 'pending' : status;
+      }
       if (text !== undefined) updateData.text = text.trim();
 
       const { data, error } = await supabase
@@ -640,11 +693,16 @@ export async function cloudUpdateStatement({ id, status, text }) {
         .single();
 
       if (!error && data) {
+        const resultData = {
+          ...data,
+          status: status !== undefined ? status : data.status,
+          is_anchor: Boolean(data.is_anchor || data.is_seed)
+        };
         try {
           db.prepare('UPDATE statements SET status = coalesce(?, status), text = coalesce(?, text) WHERE id = ?')
-            .run(status, text !== undefined ? text.trim() : null, numId);
+            .run(resultData.status, text !== undefined ? text.trim() : null, numId);
         } catch {}
-        return data;
+        return resultData;
       }
     } catch (err) {
       console.warn('Supabase updateStatement failed, falling back to SQLite:', err.message);

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.statements (
   text TEXT NOT NULL,
   author_group TEXT NOT NULL DEFAULT 'general',
   is_seed BOOLEAN NOT NULL DEFAULT false,
+  is_anchor BOOLEAN NOT NULL DEFAULT false,
   status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending_approval', 'pending', 'rejected', 'scheduled_auto')),
   auto_publish_at TIMESTAMPTZ,
   session_id TEXT,
@@ -54,6 +55,9 @@ CREATE TABLE IF NOT EXISTS public.statements (
 -- מיגרציה לעמודות חדשות בהיגדים
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='statements' AND column_name='is_anchor') THEN
+    ALTER TABLE public.statements ADD COLUMN is_anchor BOOLEAN NOT NULL DEFAULT false;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='statements' AND column_name='auto_publish_at') THEN
     ALTER TABLE public.statements ADD COLUMN auto_publish_at TIMESTAMPTZ;
   END IF;
@@ -119,19 +123,29 @@ ALTER TABLE public.statements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_logs ENABLE ROW LEVEL SECURITY;
 
--- מדיניות לזירות דיון: קריאה חופשית לכולם, עריכה/הוספה מורשית
+-- מדיניות לזירות דיון: קריאה חופשית לכולם, עריכה/הוספה מוגבלת לשירות/מנהלים בלבד
 DROP POLICY IF EXISTS "Allow public read access to topics" ON public.topics;
 CREATE POLICY "Allow public read access to topics" ON public.topics FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow public insert/update to topics" ON public.topics;
-CREATE POLICY "Allow public insert/update to topics" ON public.topics FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow service role mutations to topics" ON public.topics;
+CREATE POLICY "Allow service role mutations to topics" ON public.topics FOR ALL USING (auth.role() = 'service_role' OR auth.role() = 'authenticated');
 
--- מדיניות להיגדים: קריאה חופשית של היגדים מאושרים/הכל, והוספת היגדים חדשים
+-- מדיניות להיגדים: קריאה ציבורית מוגבלת להיגדים מאושרים בלבד!
 DROP POLICY IF EXISTS "Allow public read access to statements" ON public.statements;
-CREATE POLICY "Allow public read access to statements" ON public.statements FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public read access to approved statements" ON public.statements;
+CREATE POLICY "Allow public read access to approved statements" ON public.statements FOR SELECT USING (status = 'approved' OR auth.role() = 'service_role');
 
+-- הוספת היגדים: ציבור יכול להוסיף רק בסטטוס ממתין לאישור, ללא יכולת לאשר ישירות
 DROP POLICY IF EXISTS "Allow public insert/update to statements" ON public.statements;
-CREATE POLICY "Allow public insert/update to statements" ON public.statements FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow public submit statement in pending status" ON public.statements;
+CREATE POLICY "Allow public submit statement in pending status" ON public.statements FOR INSERT WITH CHECK (status IN ('pending', 'pending_approval', 'scheduled_auto') OR auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Allow only admin to update or delete statements" ON public.statements;
+CREATE POLICY "Allow only admin to update or delete statements" ON public.statements FOR UPDATE USING (auth.role() = 'service_role' OR auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Allow only admin to delete statements" ON public.statements;
+CREATE POLICY "Allow only admin to delete statements" ON public.statements FOR DELETE USING (auth.role() = 'service_role' OR auth.role() = 'authenticated');
 
 -- מדיניות להצבעות: קריאה והוספת הצבעות לכלל הגולשים
 DROP POLICY IF EXISTS "Allow public all access to votes" ON public.votes;

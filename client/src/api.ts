@@ -92,7 +92,7 @@ export async function fetchStatements(topicId: string, status?: string): Promise
   const url = status 
     ? `${API_BASE}/topics/${topicId}/statements?status=${status}`
     : `${API_BASE}/topics/${topicId}/statements`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch statements');
   return res.json();
 }

@@ -133,6 +133,7 @@ export function initDatabase() {
       text TEXT NOT NULL,
       author_group TEXT,
       is_seed INTEGER NOT NULL DEFAULT 0,
+      is_anchor INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'approved',
       auto_publish_at TEXT,
       session_id TEXT,
@@ -198,6 +199,9 @@ export function initDatabase() {
   } catch (err) {}
   try {
     db.exec('ALTER TABLE statements ADD COLUMN device_fingerprint TEXT;');
+  } catch (err) {}
+  try {
+    db.exec('ALTER TABLE statements ADD COLUMN is_anchor INTEGER NOT NULL DEFAULT 0;');
   } catch (err) {}
 
   // Migrate votes columns

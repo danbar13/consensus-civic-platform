@@ -325,11 +325,25 @@ app.delete('/api/topics/:id', requireAdminAuth, async (req, res) => {
 // STATEMENTS ENDPOINTS
 // -------------------------------------------------------------
 
-// Get statements for topic (optional status filter)
+// Get statements for topic (public allowed only for 'approved'; other statuses require admin auth)
 app.get('/api/topics/:id/statements', async (req, res) => {
   try {
-    const status = req.query.status;
-    const statements = await cloudGetStatements(req.params.id, status);
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader;
+    const customPass = req.headers['x-admin-password'] || '';
+    const isAdmin = verifyAdminToken(token) || verifyAdminToken(customPass);
+
+    let requestedStatus = req.query.status;
+
+    // Security check: non-admin callers can ONLY fetch approved statements
+    if (!isAdmin) {
+      if (requestedStatus && requestedStatus !== 'approved') {
+        return res.status(401).json({ error: 'צפייה בהיגדים שטרם אושרו מורשית לעורכים ומנהלים בלבד.', unauthorized: true });
+      }
+      requestedStatus = 'approved';
+    }
+
+    const statements = await cloudGetStatements(req.params.id, requestedStatus);
     res.json(statements);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch statements' });
