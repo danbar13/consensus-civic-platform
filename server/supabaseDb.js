@@ -139,9 +139,21 @@ export async function cloudGetTopics() {
             const votesList = votesData || [];
             const participants = new Set(votesList.map(v => v.session_id)).size;
 
+            let resolvedType = topic.topic_type;
+            if (!resolvedType) {
+              try {
+                const localRow = db.prepare('SELECT topic_type FROM topics WHERE id = ?').get(topic.id);
+                resolvedType = localRow?.topic_type;
+              } catch {}
+              if (!resolvedType) {
+                resolvedType = topic.id === 'eilat-airbnb' ? 'special' : 'weekly';
+              }
+            }
+
             return {
               ...topic,
               groups,
+              topic_type: resolvedType,
               stats: {
                 statementsCount: stCount || 0,
                 totalVotes: votesList.length,
@@ -235,26 +247,48 @@ export async function cloudCreateTopic(topicData) {
   invalidateTopicCache();
   if (isSupabaseActive && supabase) {
     try {
-      const { data, error } = await supabase
+      const payload = {
+        id: topicData.id,
+        slug: topicData.id,
+        title: topicData.title,
+        subtitle: topicData.subtitle || '',
+        organization: topicData.organization,
+        category: topicData.category || 'municipal',
+        groups_json: topicData.groups,
+        moderation_mode: topicData.moderation_mode || 'batch_approval',
+        created_at: topicData.created_at,
+        submissions_close_at: topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        closes_at: topicData.closes_at || null
+      };
+
+      let { data, error } = await supabase
         .from('topics')
-        .insert({
-          id: topicData.id,
-          slug: topicData.id,
-          title: topicData.title,
-          subtitle: topicData.subtitle || '',
-          organization: topicData.organization,
-          category: topicData.category || 'municipal',
-          groups_json: topicData.groups,
-          moderation_mode: topicData.moderation_mode || 'batch_approval',
-          created_at: topicData.created_at,
-          submissions_close_at: topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-          closes_at: topicData.closes_at || null
-        })
+        .insert({ ...payload, topic_type: topicData.topic_type || 'weekly' })
         .select()
         .single();
 
+      if (error && error.code === 'PGRST204') {
+        const fallbackRes = await supabase.from('topics').insert(payload).select().single();
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
+
       if (!error && data) {
         data.groups = typeof data.groups_json === 'string' ? JSON.parse(data.groups_json) : data.groups_json;
+        data.topic_type = topicData.topic_type || 'weekly';
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO topics (id, slug, title, subtitle, organization, category, groups_json, topic_type, moderation_mode, created_at, submissions_close_at, closes_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            topicData.id, topicData.id, topicData.title, topicData.subtitle || '',
+            topicData.organization, topicData.category || 'municipal',
+            JSON.stringify(topicData.groups), topicData.topic_type || 'weekly',
+            topicData.moderation_mode || 'batch_approval', topicData.created_at,
+            topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+            topicData.closes_at || null
+          );
+        } catch {}
         return data;
       }
     } catch (err) {
@@ -264,8 +298,8 @@ export async function cloudCreateTopic(topicData) {
 
   // SQLite fallback
   const insertTopic = db.prepare(`
-    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, moderation_mode, created_at, submissions_close_at, closes_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, topic_type, moderation_mode, created_at, submissions_close_at, closes_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   insertTopic.run(
     topicData.id,
@@ -275,6 +309,7 @@ export async function cloudCreateTopic(topicData) {
     topicData.organization,
     topicData.category || 'municipal',
     JSON.stringify(topicData.groups),
+    topicData.topic_type || 'weekly',
     topicData.moderation_mode || 'batch_approval',
     topicData.created_at,
     topicData.submissions_close_at || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
@@ -299,7 +334,7 @@ export async function cloudGetTopicVotesCount(topicId) {
   return db.prepare('SELECT COUNT(*) as c FROM votes WHERE topic_id = ?').get(topicId)?.c || 0;
 }
 
-export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, moderation_mode, submissions_close_at, closes_at }) {
+export async function cloudUpdateTopic({ id, title, subtitle, organization, category, groups, topic_type, moderation_mode, submissions_close_at, closes_at }) {
   invalidateTopicCache(id);
   if (isSupabaseActive && supabase) {
     try {
@@ -309,25 +344,35 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
       if (organization !== undefined) updateData.organization = organization.trim();
       if (category !== undefined) updateData.category = category;
       if (groups !== undefined) updateData.groups_json = groups;
+      if (topic_type !== undefined) updateData.topic_type = topic_type;
       if (moderation_mode !== undefined) updateData.moderation_mode = moderation_mode;
       if (submissions_close_at !== undefined) updateData.submissions_close_at = submissions_close_at;
       if (closes_at !== undefined) updateData.closes_at = closes_at;
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('topics')
         .update(updateData)
         .eq('id', id)
         .select()
         .single();
 
+      if (error && error.code === 'PGRST204' && updateData.topic_type !== undefined) {
+        delete updateData.topic_type;
+        const fallbackRes = await supabase.from('topics').update(updateData).eq('id', id).select().single();
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
+
       if (!error && data) {
         data.groups = typeof data.groups_json === 'string' ? JSON.parse(data.groups_json) : data.groups_json;
+        if (topic_type !== undefined) data.topic_type = topic_type;
         try {
           db.prepare(`
             UPDATE topics 
             SET title = coalesce(?, title), subtitle = coalesce(?, subtitle), 
                 organization = coalesce(?, organization), category = coalesce(?, category), 
-                groups_json = coalesce(?, groups_json), moderation_mode = coalesce(?, moderation_mode),
+                groups_json = coalesce(?, groups_json), topic_type = coalesce(?, topic_type),
+                moderation_mode = coalesce(?, moderation_mode),
                 submissions_close_at = coalesce(?, submissions_close_at), closes_at = coalesce(?, closes_at)
             WHERE id = ?
           `).run(
@@ -336,6 +381,7 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
             organization !== undefined ? organization.trim() : null,
             category !== undefined ? category : null,
             groups !== undefined ? JSON.stringify(groups) : null,
+            topic_type !== undefined ? topic_type : null,
             moderation_mode !== undefined ? moderation_mode : null,
             submissions_close_at !== undefined ? submissions_close_at : null,
             closes_at !== undefined ? closes_at : null,
@@ -358,15 +404,16 @@ export async function cloudUpdateTopic({ id, title, subtitle, organization, cate
   const newOrg = organization !== undefined ? organization.trim() : topic.organization;
   const newCategory = category !== undefined ? category : topic.category;
   const newGroupsJson = groups !== undefined ? JSON.stringify(groups) : topic.groups_json;
+  const newTopicType = topic_type !== undefined ? topic_type : (topic.topic_type || 'weekly');
   const newModerationMode = moderation_mode !== undefined ? moderation_mode : (topic.moderation_mode || 'batch_approval');
   const newSubmissionsClose = submissions_close_at !== undefined ? submissions_close_at : topic.submissions_close_at;
   const newClosesAt = closes_at !== undefined ? closes_at : topic.closes_at;
 
   db.prepare(`
     UPDATE topics 
-    SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, moderation_mode = ?, submissions_close_at = ?, closes_at = ?
+    SET title = ?, subtitle = ?, organization = ?, category = ?, groups_json = ?, topic_type = ?, moderation_mode = ?, submissions_close_at = ?, closes_at = ?
     WHERE id = ?
-  `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newModerationMode, newSubmissionsClose, newClosesAt, id);
+  `).run(newTitle, newSubtitle, newOrg, newCategory, newGroupsJson, newTopicType, newModerationMode, newSubmissionsClose, newClosesAt, id);
 
   const updated = db.prepare('SELECT * FROM topics WHERE id = ?').get(id);
   updated.groups = JSON.parse(updated.groups_json);

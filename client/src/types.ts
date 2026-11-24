@@ -13,6 +13,7 @@ export interface Topic {
   category: 'municipal' | 'mediation' | 'committee' | 'consulting';
   groups_json: string;
   groups: StakeholderGroup[];
+  topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
   created_at: string;
   submissions_close_at?: string | null;

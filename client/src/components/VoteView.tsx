@@ -19,11 +19,13 @@ import {
   ArrowRight,
   Clock,
   Lock,
-  BarChart3
+  BarChart3,
+  Compass
 } from 'lucide-react';
 
 interface VoteViewProps {
   topic: Topic;
+  topics?: Topic[];
   statements: Statement[];
   userVotes: Record<number, { vote: number; group_id: string }>;
   currentGroup: string;
@@ -32,11 +34,13 @@ interface VoteViewProps {
   onVoteCast: (statementId: number, voteVal: number, microInsight?: any) => void;
   onStatementAdded: (statement: Statement) => void;
   onNavigateToDashboard: () => void;
+  onSelectTopic?: (topicId: string) => void;
   onReturnToPitch?: () => void;
 }
 
 export const VoteView: React.FC<VoteViewProps> = ({
   topic,
+  topics = [],
   statements,
   userVotes,
   currentGroup,
@@ -45,6 +49,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
   onVoteCast,
   onStatementAdded,
   onNavigateToDashboard,
+  onSelectTopic,
   onReturnToPitch
 }) => {
   const [microInsight, setMicroInsight] = useState<{ text: string; percent: number } | null>(null);
@@ -249,6 +254,19 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
   const activeGroupObj = topic.groups.find(g => g.id === currentGroup) || topic.groups[0];
 
+  // Active topics calculation for Arena Switcher
+  const nowMs = Date.now();
+  const activeWeeklyTopic = (topics || []).find((t: Topic) => 
+    (t.topic_type === 'weekly' || !t.topic_type) && 
+    (!t.closes_at || new Date(t.closes_at).getTime() > nowMs)
+  );
+  const activeSpecialTopics = (topics || []).filter((t: Topic) => 
+    t.topic_type === 'special' && 
+    (!t.closes_at || new Date(t.closes_at).getTime() > nowMs)
+  );
+  const hasMultipleTopics = (topics || []).length > 1;
+  const hasParallelSpecial = activeSpecialTopics.length > 0;
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       
@@ -268,14 +286,156 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </div>
       )}
 
+      {/* ARENA SWITCHER (TOPIC SELECTOR): Special / Off-Schedule Topics alongside Weekly */}
+      {hasMultipleTopics && onSelectTopic && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3 transition-colors">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                <Compass className="w-4 h-4" />
+              </span>
+              <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                זירות דיון ומשאלי עמדות פעילים באילת
+              </h2>
+            </div>
+            {hasParallelSpecial && (
+              <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1 animate-pulse">
+                <span>⚡ משאל בזק שלא מן המניין פועל במקביל!</span>
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 1. Weekly Topic Card */}
+            {activeWeeklyTopic && (
+              <button
+                type="button"
+                onClick={() => onSelectTopic(activeWeeklyTopic.id)}
+                className={`p-3.5 rounded-2xl border text-right transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                  topic.id === activeWeeklyTopic.id
+                    ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-500 shadow-md ring-2 ring-blue-400/50'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 opacity-80 hover:opacity-100'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                      <span>📅 המשאל השבועי המרכזי</span>
+                    </span>
+                    {topic.id === activeWeeklyTopic.id ? (
+                      <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full shadow-2xs border border-blue-200 dark:border-blue-800">
+                        מוצג כעת ✓
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-500 hover:text-blue-600">
+                        לחץ להצבעה ↗
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                    {activeWeeklyTopic.title}
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                  <span>{activeWeeklyTopic.organization}</span>
+                  <span>{activeWeeklyTopic.stats?.totalVotes || 0} הצבעות</span>
+                </div>
+              </button>
+            )}
+
+            {/* 2. Special Topics Cards */}
+            {activeSpecialTopics.map(spec => (
+              <button
+                key={spec.id}
+                type="button"
+                onClick={() => onSelectTopic(spec.id)}
+                className={`p-3.5 rounded-2xl border text-right transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                  topic.id === spec.id
+                    ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-500 shadow-md ring-2 ring-purple-400/50'
+                    : 'bg-purple-50/30 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/60 hover:border-purple-300 opacity-85 hover:opacity-100'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-800 flex items-center gap-1">
+                      <span>⚡ משאל שלא מן המניין (בזק)</span>
+                    </span>
+                    {topic.id === spec.id ? (
+                      <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full shadow-2xs border border-purple-200 dark:border-purple-800">
+                        מוצג כעת ✓
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-purple-600 hover:underline">
+                        הצבע במשאל זה ↗
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                    {spec.title}
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center justify-between pt-2 border-t border-purple-100 dark:border-purple-950">
+                  <span>{spec.organization}</span>
+                  <span>{spec.stats?.totalVotes || 0} הצבעות</span>
+                </div>
+              </button>
+            ))}
+
+            {/* If there are no special topics yet, but other topics exist */}
+            {activeSpecialTopics.length === 0 && (topics || []).filter(t => t.id !== activeWeeklyTopic?.id).slice(0, 1).map(other => (
+              <button
+                key={other.id}
+                type="button"
+                onClick={() => onSelectTopic(other.id)}
+                className={`p-3.5 rounded-2xl border text-right transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                  topic.id === other.id
+                    ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-500 shadow-md ring-2 ring-emerald-400/50'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 opacity-80 hover:opacity-100'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                      זירת דיון נוספת
+                    </span>
+                    {topic.id === other.id ? (
+                      <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full shadow-2xs">
+                        מוצג כעת ✓
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-500">
+                        לחץ להצבעה ↗
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                    {other.title}
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                  <span>{other.organization}</span>
+                  <span>{other.stats?.totalVotes || 0} הצבעות</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 0. PROMINENT POLL TOPIC BANNER */}
       <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-lg border border-blue-800/40 space-y-3 text-center sm:text-right">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <img src="/favicon.svg" alt="המצפן האילתי" className="w-5 h-5 rounded-md shadow-xs shrink-0" />
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-slate-950 shadow-xs">
-              נושא המשאל
-            </span>
+            {topic.topic_type === 'special' ? (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-400 text-slate-950 shadow-xs flex items-center gap-1">
+                <span>⚡ משאל שלא מן המניין</span>
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-slate-950 shadow-xs flex items-center gap-1">
+                <span>📅 המשאל השבועי המרכזי</span>
+              </span>
+            )}
             <span className="text-xs text-blue-200 font-bold">
               {topic.organization}
             </span>

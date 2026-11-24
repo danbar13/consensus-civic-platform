@@ -154,10 +154,54 @@ app.get('/api/topics/:id', async (req, res) => {
 // Create new topic
 app.post('/api/topics', requireAdminAuth, async (req, res) => {
   try {
-    const { id, title, subtitle, organization, category, groups, initialStatements, moderation_mode, submissions_close_at, closes_at } = req.body;
+    const { 
+      id, 
+      title, 
+      subtitle, 
+      organization, 
+      category, 
+      groups, 
+      initialStatements, 
+      topic_type, 
+      moderation_mode, 
+      submissions_close_at, 
+      closes_at,
+      close_previous_weekly 
+    } = req.body;
     
     if (!title || !organization || !groups || groups.length === 0) {
       return res.status(400).json({ error: 'Missing required topic fields' });
+    }
+
+    const targetTopicType = topic_type === 'special' ? 'special' : 'weekly';
+
+    // Enforcement: Only one regular weekly topic can be active at a time
+    if (targetTopicType === 'weekly') {
+      const allTopics = await cloudGetTopics();
+      const activeWeekly = allTopics.find(t => 
+        (t.topic_type === 'weekly' || !t.topic_type) && 
+        (!t.closes_at || new Date(t.closes_at).getTime() > Date.now())
+      );
+
+      if (activeWeekly) {
+        if (close_previous_weekly === true) {
+          const nowIso = new Date().toISOString();
+          await cloudUpdateTopic({ 
+            id: activeWeekly.id, 
+            closes_at: nowIso, 
+            submissions_close_at: nowIso 
+          });
+          console.log(`[Topics] Closed previous active weekly topic '${activeWeekly.title}' to open new weekly topic.`);
+        } else {
+          return res.status(400).json({ 
+            error: `קיימת כבר זירה שבועית פעילה ("${activeWeekly.title}"). על פי הנוהל העיתונאי, לא ניתן לפתוח זירה שבועית נוספת כל עוד הקודמת פעילה. באפשרותך לסגור/לנעול את הזירה הקודמת, או להגדיר זירה זו כ"זירה שלא מן המניין" (בזק/מיוחדת).`,
+            activeWeeklyTopic: {
+              id: activeWeekly.id,
+              title: activeWeekly.title
+            }
+          });
+        }
+      }
     }
 
     // Validate that at least 5 statements are provided
@@ -182,6 +226,7 @@ app.post('/api/topics', requireAdminAuth, async (req, res) => {
       organization,
       category: category || 'municipal',
       groups,
+      topic_type: targetTopicType,
       moderation_mode: moderation_mode || 'batch_approval',
       created_at: now,
       submissions_close_at: submissions_close_at || defaultSubmissionsClose,
@@ -216,7 +261,7 @@ app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
     const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
 
-    const { title, subtitle, organization, category, groups, moderation_mode, submissions_close_at, closes_at } = req.body;
+    const { title, subtitle, organization, category, groups, topic_type, moderation_mode, submissions_close_at, closes_at } = req.body;
 
     // Check if structural fields are being changed when topic already has votes
     const structuralChangeRequested = (title && title !== topic.title) || 
@@ -239,6 +284,7 @@ app.patch('/api/topics/:id', requireAdminAuth, async (req, res) => {
       organization,
       category,
       groups,
+      topic_type,
       moderation_mode,
       submissions_close_at,
       closes_at

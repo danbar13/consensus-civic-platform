@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.topics (
   organization TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'municipal',
   groups_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  topic_type TEXT NOT NULL DEFAULT 'weekly' CHECK (topic_type IN ('weekly', 'special')),
   moderation_mode TEXT NOT NULL DEFAULT 'batch_approval' CHECK (moderation_mode IN ('batch_approval', 'auto_publish', 'instant_publish')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
   submissions_close_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now() + interval '48 hours'),
@@ -21,6 +22,9 @@ CREATE TABLE IF NOT EXISTS public.topics (
 -- מיגרציה לעמודות חדשות במידה והטבלה כבר קיימת
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='topic_type') THEN
+    ALTER TABLE public.topics ADD COLUMN topic_type TEXT NOT NULL DEFAULT 'weekly';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='topics' AND column_name='moderation_mode') THEN
     ALTER TABLE public.topics ADD COLUMN moderation_mode TEXT NOT NULL DEFAULT 'batch_approval';
   END IF;

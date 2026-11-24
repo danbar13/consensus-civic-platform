@@ -119,6 +119,7 @@ export function initDatabase() {
       organization TEXT NOT NULL,
       category TEXT NOT NULL,
       groups_json TEXT NOT NULL,
+      topic_type TEXT NOT NULL DEFAULT 'weekly',
       moderation_mode TEXT NOT NULL DEFAULT 'batch_approval',
       created_at TEXT NOT NULL,
       submissions_close_at TEXT,
@@ -174,6 +175,9 @@ export function initDatabase() {
   } catch (err) {}
 
   // Migrate moderation_mode and submissions_close_at on topics
+  try {
+    db.exec("ALTER TABLE topics ADD COLUMN topic_type TEXT NOT NULL DEFAULT 'weekly';");
+  } catch (err) {}
   try {
     db.exec("ALTER TABLE topics ADD COLUMN moderation_mode TEXT NOT NULL DEFAULT 'batch_approval';");
   } catch (err) {}
@@ -246,8 +250,8 @@ function seedDataIfEmpty() {
   console.log('🌱 Seeding initial topics, statements, and votes for Civic Consensus Platform...');
 
   const insertTopic = db.prepare(`
-    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, moderation_mode, created_at, submissions_close_at, closes_at)
-    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @moderation_mode, @created_at, @submissions_close_at, @closes_at)
+    INSERT INTO topics (id, slug, title, subtitle, organization, category, groups_json, topic_type, moderation_mode, created_at, submissions_close_at, closes_at)
+    VALUES (@id, @slug, @title, @subtitle, @organization, @category, @groups_json, @topic_type, @moderation_mode, @created_at, @submissions_close_at, @closes_at)
   `);
 
   const insertStatement = db.prepare(`
@@ -278,6 +282,7 @@ function seedDataIfEmpty() {
     organization: 'ערב ערב באילת – המצפן העירוני',
     category: 'municipal',
     groups_json: JSON.stringify(eilatParkingGroups),
+    topic_type: 'weekly',
     moderation_mode: 'batch_approval',
     created_at: now,
     submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
@@ -405,7 +410,10 @@ function seedDataIfEmpty() {
     organization: 'מרכז הגישור והקהילה אילת',
     category: 'mediation',
     groups_json: JSON.stringify(airbnbGroups),
+    topic_type: 'special',
+    moderation_mode: 'batch_approval',
     created_at: now,
+    submissions_close_at: defaultClosingDate,
     closes_at: defaultClosingDate
   });
 
@@ -501,7 +509,10 @@ function seedDataIfEmpty() {
     organization: 'ועדת מלגות וקרן אילת',
     category: 'committee',
     groups_json: JSON.stringify(scholarshipGroups),
+    topic_type: 'special',
+    moderation_mode: 'batch_approval',
     created_at: now,
+    submissions_close_at: defaultClosingDate,
     closes_at: defaultClosingDate
   });
 

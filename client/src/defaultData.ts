@@ -17,6 +17,7 @@ export const DEFAULT_TOPIC: Topic = {
     { id: 'business', label: 'בעלי עסקים ועובדי אזור התעשייה', color: '#d97706' },
     { id: 'tourism', label: 'ענף התיירות ומבקרים', color: '#059669' }
   ],
+  topic_type: 'weekly',
   moderation_mode: 'batch_approval',
   created_at: '2026-03-01T00:00:00.000Z',
   submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()

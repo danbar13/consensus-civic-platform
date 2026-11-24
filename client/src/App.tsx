@@ -264,6 +264,7 @@ export function App() {
             {activeTab === 'vote' && (
               <VoteView
                 topic={currentTopic}
+                topics={topics}
                 statements={statements}
                 userVotes={userVotes}
                 currentGroup={currentGroup}
@@ -271,6 +272,7 @@ export function App() {
                 onChangeGroup={handleChangeGroup}
                 onVoteCast={handleVoteCast}
                 onStatementAdded={handleStatementAdded}
+                onSelectTopic={handleSelectTopic}
                 onNavigateToDashboard={() => {
                   setActiveTab('dashboard');
                   if (currentTopic) {

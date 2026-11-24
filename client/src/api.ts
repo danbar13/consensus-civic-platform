@@ -224,9 +224,11 @@ export async function createTopic(data: {
   category: string;
   groups: { id: string; label: string; color: string }[];
   initialStatements: string[];
+  topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
   submissions_close_at?: string | null;
   closes_at?: string | null;
+  close_previous_weekly?: boolean;
 }): Promise<Topic> {
   const res = await fetch(`${API_BASE}/topics`, {
     method: 'POST',
@@ -247,6 +249,7 @@ export async function updateTopic(id: string, data: {
   organization?: string;
   category?: string;
   groups?: { id: string; label: string; color: string }[];
+  topic_type?: 'weekly' | 'special';
   moderation_mode?: 'batch_approval' | 'auto_publish' | 'instant_publish';
   submissions_close_at?: string | null;
   closes_at?: string | null;

@@ -417,7 +417,18 @@ export const Header: React.FC<HeaderProps> = ({
                                 {getCategoryIcon(t.category)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium text-amber-400/90 mb-0.5">{t.organization}</div>
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-xs font-medium text-amber-400/90">{t.organization}</span>
+                                  {t.topic_type === 'special' ? (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-purple-500/30 text-purple-300 border border-purple-500/40">
+                                      ⚡ שלא מן המניין
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-blue-500/30 text-blue-300 border border-blue-500/40">
+                                      📅 שבועית
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-sm font-bold text-white line-clamp-2 leading-snug">{t.title}</div>
                                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
                                   <span>{t.stats?.participants || 0} משתתפים</span>

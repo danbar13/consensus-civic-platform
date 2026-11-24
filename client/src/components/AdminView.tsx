@@ -50,7 +50,8 @@ import {
   Database,
   Eye,
   BarChart3,
-  AlertTriangle
+  AlertTriangle,
+  Compass
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -107,6 +108,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicSubtitle, setNewTopicSubtitle] = useState('');
   const [newTopicOrg, setNewTopicOrg] = useState('ערב ערב באילת – המצפן העירוני');
+  const [newTopicType, setNewTopicType] = useState<'weekly' | 'special'>('weekly');
+  const [closePreviousWeekly, setClosePreviousWeekly] = useState(false);
   const [newTopicCategory, setNewTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
   const [newTopicModerationMode, setNewTopicModerationMode] = useState<'batch_approval' | 'auto_publish' | 'instant_publish'>('batch_approval');
   const [newTopicSubmissionsCloseAt, setNewTopicSubmissionsCloseAt] = useState<string>('');
@@ -128,6 +131,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editTopicTitle, setEditTopicTitle] = useState('');
   const [editTopicSubtitle, setEditTopicSubtitle] = useState('');
   const [editTopicOrg, setEditTopicOrg] = useState('');
+  const [editTopicType, setEditTopicType] = useState<'weekly' | 'special'>('weekly');
   const [editTopicCategory, setEditTopicCategory] = useState<'municipal' | 'mediation' | 'committee' | 'consulting'>('municipal');
   const [editTopicModerationMode, setEditTopicModerationMode] = useState<'batch_approval' | 'auto_publish' | 'instant_publish'>('batch_approval');
   const [editTopicSubmissionsCloseAt, setEditTopicSubmissionsCloseAt] = useState<string>('');
@@ -303,6 +307,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setEditTopicTitle(t.title);
     setEditTopicSubtitle(t.subtitle || '');
     setEditTopicOrg(t.organization);
+    setEditTopicType(t.topic_type || 'weekly');
     setEditTopicCategory(t.category);
     setEditTopicGroups(t.groups || []);
     setEditTopicModerationMode(t.moderation_mode || 'batch_approval');
@@ -341,6 +346,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         organization: editTopicOrg.trim(),
         category: editTopicCategory,
         groups: editTopicGroups,
+        topic_type: editTopicType,
         moderation_mode: editTopicModerationMode,
         submissions_close_at: editTopicSubmissionsCloseAt ? new Date(editTopicSubmissionsCloseAt).toISOString() : null,
         closes_at: editTopicClosesAt ? new Date(editTopicClosesAt).toISOString() : null
@@ -461,6 +467,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
       return;
     }
 
+    const activeWeekly = topics.find(t => 
+      (t.topic_type === 'weekly' || !t.topic_type) && 
+      (!t.closes_at || new Date(t.closes_at).getTime() > Date.now())
+    );
+
+    if (newTopicType === 'weekly' && activeWeekly && !closePreviousWeekly) {
+      setErrorMessage(`קיימת כבר זירה שבועית פעילה ("${activeWeekly.title}"). על פי הנוהל העיתונאי, לא ניתן לפתוח זירה שבועית נוספת במקביל. באפשרותך לסמן את תיבת הסגירה של הזירה הקודמת, או להגדיר זירה זו כ"זירה שלא מן המניין" (בזק/מיוחדת).`);
+      return;
+    }
+
     setCreatingTopic(true);
     try {
       const created = await createTopic({
@@ -470,15 +486,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
         category: newTopicCategory,
         groups: newTopicGroups,
         initialStatements: selectedStatements,
+        topic_type: newTopicType,
         moderation_mode: newTopicModerationMode,
         submissions_close_at: newTopicSubmissionsCloseAt ? new Date(newTopicSubmissionsCloseAt).toISOString() : null,
-        closes_at: newTopicClosesAt ? new Date(newTopicClosesAt).toISOString() : null
+        closes_at: newTopicClosesAt ? new Date(newTopicClosesAt).toISOString() : null,
+        close_previous_weekly: closePreviousWeekly
       });
 
       setShowNewTopicModal(false);
       setSelectedStatements([]);
       setNewTopicTitle('');
       setNewTopicSubtitle('');
+      setNewTopicType('weekly');
+      setClosePreviousWeekly(false);
       setNewTopicSubmissionsCloseAt('');
       setNewTopicClosesAt('');
       onTopicCreated(created);
@@ -886,6 +906,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   זירה במיקוד: {currentTopic.id}
                 </span>
 
+                {currentTopic.topic_type === 'special' ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-800 flex items-center gap-1">
+                    ⚡ זירה שלא מן המניין (בזק)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex items-center gap-1">
+                    📅 זירה שבועית רגילה
+                  </span>
+                )}
+
                 {/* Closing status badge */}
                 {(() => {
                   const closing = getClosingStatus(currentTopic.closes_at);
@@ -1001,6 +1031,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       {isActive && (
                         <span className="px-2 py-0.2 rounded text-[10px] font-black bg-amber-400 text-slate-950">
                           זירה פעילה
+                        </span>
+                      )}
+                      {t.topic_type === 'special' ? (
+                        <span className="px-2 py-0.2 rounded text-[10px] font-black bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          ⚡ שלא מן המניין
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.2 rounded text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                          📅 שבועית
                         </span>
                       )}
                       {(() => {
@@ -1601,6 +1640,102 @@ export const AdminView: React.FC<AdminViewProps> = ({
             )}
 
             <form onSubmit={handleCreateTopicSubmit} className="space-y-4">
+              {/* Topic Type Selector: Weekly vs Special */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Compass className="w-4 h-4 text-amber-500" />
+                    <span>סוג זירת הדיון *</span>
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    {newTopicType === 'weekly' ? 'משאל שבועי מרכזי' : 'משאל בזק מקביל'}
+                  </span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTopicType('weekly');
+                      setErrorMessage(null);
+                    }}
+                    className={`p-3 rounded-xl border text-right transition cursor-pointer ${
+                      newTopicType === 'weekly'
+                        ? 'bg-blue-50/90 dark:bg-blue-950/50 border-blue-500 shadow-xs ring-1 ring-blue-400'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>📅 זירה שבועית רגילה</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-bold">ראשית</span>
+                      </span>
+                      {newTopicType === 'weekly' && <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                      הסקר השבועי המרכזי של העיתון. הנוהל מאפשר זירה שבועית פעילה אחת בכל עת.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTopicType('special');
+                      setErrorMessage(null);
+                    }}
+                    className={`p-3 rounded-xl border text-right transition cursor-pointer ${
+                      newTopicType === 'special'
+                        ? 'bg-purple-50/90 dark:bg-purple-950/50 border-purple-500 shadow-xs ring-1 ring-purple-400'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>⚡ זירה שלא מן המניין (בזק)</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-bold">מקבילה</span>
+                      </span>
+                      {newTopicType === 'special' && <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                      משאל מתפרץ על אירוע בוער. פועל במקביל לזירה השבועית ומופיע למצביעים לבחירה.
+                    </p>
+                  </button>
+                </div>
+
+                {/* Warning if weekly topic is selected and one is already active */}
+                {newTopicType === 'weekly' && (() => {
+                  const activeWeekly = topics.find(t => 
+                    (t.topic_type === 'weekly' || !t.topic_type) && 
+                    (!t.closes_at || new Date(t.closes_at).getTime() > Date.now())
+                  );
+                  if (!activeWeekly) return null;
+                  return (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs space-y-2 mt-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">קיימת זירה שבועית פעילה כעת: </span>
+                          <span className="font-extrabold underline">"{activeWeekly.title}"</span>
+                          <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                            לא ניתן לקיים שתי זירות שבועיות במקביל. כדי להמשיך, יש לנעול את הזירה הקודמת או להגדיר זירה זו כ'זירה שלא מן המניין'.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-900 dark:text-white text-xs bg-white dark:bg-slate-950 p-2 rounded-lg border border-amber-300 dark:border-amber-700">
+                          <input
+                            type="checkbox"
+                            checked={closePreviousWeekly}
+                            onChange={e => setClosePreviousWeekly(e.target.checked)}
+                            className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+                          />
+                          <span>נעל את הזירה השבועית הקודמת עם פתיחת זירה זו</span>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   כותרת הדיון / הסוגיה *
@@ -2080,7 +2215,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    סוג זירה
+                  </label>
+                  <select
+                    value={editTopicType}
+                    onChange={e => setEditTopicType(e.target.value as any)}
+                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500 outline-none"
+                  >
+                    <option value="weekly">📅 זירה שבועית רגילה</option>
+                    <option value="special">⚡ זירה שלא מן המניין</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     שם הארגון / המותג היוזם *
