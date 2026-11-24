@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Topic, TopicAnalytics, Statement } from '../types';
 import { generateAIReport } from '../api';
-import html2canvas from 'html2canvas';
+import { toJpeg, toPng, toBlob } from 'html-to-image';
 import { 
   Sparkles, 
   Newspaper, 
@@ -71,25 +71,31 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, analytics, da
     window.print();
   };
 
-  // Download Infographics as JPEG or PNG
+  // Download Infographics as JPEG or PNG using native browser rendering (supports Tailwind v4 and oklch)
   const handleDownloadImage = async (format: 'jpeg' | 'png' = 'jpeg') => {
     if (!infographicsRef.current) return;
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(infographicsRef.current, {
-        scale: 2, // High resolution (300 DPI print quality)
-        useCORS: true,
+      const options = {
+        quality: 0.95,
+        pixelRatio: 2, // High resolution (300 DPI print quality)
         backgroundColor: darkMode ? '#0f172a' : '#ffffff'
-      });
-      const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+      };
+
+      const dataUrl = format === 'jpeg'
+        ? await toJpeg(infographicsRef.current, options)
+        : await toPng(infographicsRef.current, options);
+
       const link = document.createElement('a');
       link.download = `אינפוגרפיקה - ${topic.title}.${format}`;
-      link.href = canvas.toDataURL(mime, 0.95);
+      link.href = dataUrl;
       link.click();
+
       setExportSuccessMsg(`התרשים הורד בהצלחה כקובץ ${format.toUpperCase()} לדפוס!`);
       setTimeout(() => setExportSuccessMsg(null), 3500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to export image:', err);
+      alert('שגיאה בהפקת התמונה: ' + (err?.message || err));
     } finally {
       setIsExporting(false);
     }
@@ -100,39 +106,42 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, analytics, da
     if (!infographicsRef.current) return;
     setIsCopyingImage(true);
     try {
-      const canvas = await html2canvas(infographicsRef.current, {
-        scale: 2,
-        useCORS: true,
+      const options = {
+        pixelRatio: 2,
         backgroundColor: darkMode ? '#0f172a' : '#ffffff'
-      });
-      canvas.toBlob(async (blob) => {
-        if (blob && navigator.clipboard && window.ClipboardItem) {
-          try {
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': blob })
-            ]);
-            setExportSuccessMsg('התמונה הועתקה ללוח בהצלחה! ניתן להדביק ישירות (Ctrl+V) באינדיזיין, פוטושופ או במייל.');
-            setTimeout(() => setExportSuccessMsg(null), 4000);
-          } catch (writeErr) {
-            // Fallback to download if browser restricts clipboard image write
-            const link = document.createElement('a');
-            link.download = `אינפוגרפיקה - ${topic.title}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            setExportSuccessMsg('התמונה הורדה כקובץ PNG.');
-            setTimeout(() => setExportSuccessMsg(null), 3000);
-          }
-        } else {
+      };
+
+      const blob = await toBlob(infographicsRef.current, options);
+
+      if (blob && navigator.clipboard && window.ClipboardItem) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          setExportSuccessMsg('התמונה הועתקה ללוח בהצלחה! ניתן להדביק ישירות (Ctrl+V) באינדיזיין, פוטושופ או במייל.');
+          setTimeout(() => setExportSuccessMsg(null), 4000);
+        } catch (writeErr) {
+          // Fallback to download if browser clipboard permission restricts binary image write
+          const dataUrl = await toPng(infographicsRef.current, options);
           const link = document.createElement('a');
           link.download = `אינפוגרפיקה - ${topic.title}.png`;
-          link.href = canvas.toDataURL('image/png');
+          link.href = dataUrl;
           link.click();
           setExportSuccessMsg('התמונה הורדה כקובץ PNG.');
           setTimeout(() => setExportSuccessMsg(null), 3000);
         }
-      }, 'image/png');
-    } catch (err) {
+      } else {
+        const dataUrl = await toPng(infographicsRef.current, options);
+        const link = document.createElement('a');
+        link.download = `אינפוגרפיקה - ${topic.title}.png`;
+        link.href = dataUrl;
+        link.click();
+        setExportSuccessMsg('התמונה הורדה כקובץ PNG.');
+        setTimeout(() => setExportSuccessMsg(null), 3000);
+      }
+    } catch (err: any) {
       console.error('Failed to copy image:', err);
+      alert('שגיאה בהעתקת התמונה: ' + (err?.message || err));
     } finally {
       setIsCopyingImage(false);
     }
