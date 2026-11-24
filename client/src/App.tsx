@@ -71,10 +71,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-  }, [activeTab, currentTopic?.id]);
+    // Only scroll to top when switching major tabs (not when updating topics inside admin)
+    if (activeTab !== 'admin') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [activeTab]);
 
   // Dark Mode State with URL parameter, LocalStorage persistence and system preference fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -311,13 +314,18 @@ export function App() {
                   handleSelectTopic(newT.id);
                   setActiveTab('admin');
                 }}
-                onTopicUpdated={async updatedT => {
-                  const all = await fetchTopics();
-                  setTopics(all);
-                  setCurrentTopic(updatedT);
-                  if (sessionId) {
-                    loadTopicData(updatedT.id, sessionId);
+                onTopicUpdated={updatedT => {
+                  setTopics(prev => prev.map(t => t.id === updatedT.id ? updatedT : t));
+                  if (currentTopic?.id === updatedT.id) {
+                    setCurrentTopic(updatedT);
                   }
+                  // Background sync to keep cache and full list consistent
+                  fetchTopics().then(all => {
+                    if (all && all.length > 0) {
+                      setTopics(all);
+                      setCachedTopics(all);
+                    }
+                  }).catch(console.error);
                 }}
                 onTopicDeleted={async deletedId => {
                   const all = await fetchTopics();

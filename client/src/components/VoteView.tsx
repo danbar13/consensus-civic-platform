@@ -257,19 +257,19 @@ export const VoteView: React.FC<VoteViewProps> = ({
   // Active topics calculation for Arena Switcher
   const nowMs = Date.now();
   const isTopicLive = (t: Topic) => {
+    // 1. If closes_at exists and is in the past -> closed (not live)
     if (t.closes_at && new Date(t.closes_at).getTime() <= nowMs) return false;
+    // 2. If starts_at exists and is in the future -> scheduled (not live yet)
     if (t.starts_at && new Date(t.starts_at).getTime() > nowMs) return false;
-    if (!t.starts_at && !t.closes_at && (t.stats?.totalVotes || 0) === 0) return false;
+    // 3. If neither starts_at nor closes_at is set -> draft / unscheduled in bank (not live)
+    if (!t.starts_at && !t.closes_at) return false;
     return true;
   };
 
-  const activeWeeklyTopic = (topics || []).find((t: Topic) => 
-    (t.topic_type === 'weekly' || !t.topic_type) && isTopicLive(t)
-  );
-  const activeSpecialTopics = (topics || []).filter((t: Topic) => 
-    t.topic_type === 'special' && isTopicLive(t)
-  );
-  const hasMultipleTopics = (topics || []).length > 1;
+  const liveTopics = (topics || []).filter(isTopicLive);
+  const activeWeeklyTopic = liveTopics.find((t: Topic) => (t.topic_type === 'weekly' || !t.topic_type));
+  const activeSpecialTopics = liveTopics.filter((t: Topic) => t.topic_type === 'special');
+  const hasMultipleLiveTopics = liveTopics.length > 1;
   const hasParallelSpecial = activeSpecialTopics.length > 0;
 
   return (
@@ -291,8 +291,8 @@ export const VoteView: React.FC<VoteViewProps> = ({
         </div>
       )}
 
-      {/* ARENA SWITCHER (TOPIC SELECTOR): Special / Off-Schedule Topics alongside Weekly */}
-      {hasMultipleTopics && onSelectTopic && (
+      {/* ARENA SWITCHER (TOPIC SELECTOR): Only visible when there are MULTIPLE live topics */}
+      {hasMultipleLiveTopics && onSelectTopic && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3 transition-colors">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
@@ -382,44 +382,6 @@ export const VoteView: React.FC<VoteViewProps> = ({
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center justify-between pt-2 border-t border-purple-100 dark:border-purple-950">
                   <span>{spec.organization}</span>
                   <span>{spec.stats?.totalVotes || 0} הצבעות</span>
-                </div>
-              </button>
-            ))}
-
-            {/* If there are no special topics yet, but other live topics exist */}
-            {activeSpecialTopics.length === 0 && (topics || []).filter(t => t.id !== activeWeeklyTopic?.id && isTopicLive(t)).slice(0, 1).map(other => (
-              <button
-                key={other.id}
-                type="button"
-                onClick={() => onSelectTopic(other.id)}
-                className={`p-3.5 rounded-2xl border text-right transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
-                  topic.id === other.id
-                    ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-500 shadow-md ring-2 ring-emerald-400/50'
-                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 opacity-80 hover:opacity-100'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                      זירת דיון נוספת
-                    </span>
-                    {topic.id === other.id ? (
-                      <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full shadow-2xs">
-                        מוצג כעת ✓
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-slate-500">
-                        לחץ להצבעה ↗
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">
-                    {other.title}
-                  </div>
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                  <span>{other.organization}</span>
-                  <span>{other.stats?.totalVotes || 0} הצבעות</span>
                 </div>
               </button>
             ))}

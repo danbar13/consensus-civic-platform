@@ -502,50 +502,61 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleLaunchNow = async (targetTopic: Topic, durationDays = 5) => {
-    setIsProcessingAction(true);
-    try {
-      const isWeekly = (targetTopic.topic_type === 'weekly' || !targetTopic.topic_type);
-      if (isWeekly) {
-        const activeWeekly = topics.find(other => 
-          other.id !== targetTopic.id &&
-          (other.topic_type === 'weekly' || !other.topic_type) && 
-          (!other.closes_at || new Date(other.closes_at).getTime() > Date.now())
+    const isWeekly = (targetTopic.topic_type === 'weekly' || !targetTopic.topic_type);
+    if (isWeekly) {
+      const activeWeekly = topics.find(other => 
+        other.id !== targetTopic.id &&
+        (other.topic_type === 'weekly' || !other.topic_type) && 
+        (!other.closes_at || new Date(other.closes_at).getTime() > Date.now())
+      );
+      if (activeWeekly) {
+        const confirmSwitch = window.confirm(
+          `קיימת כבר זירה שבועית פעילה כעת ("${activeWeekly.title}").\nהאם לנעול אותה ולהעלות את הזירה "${targetTopic.title}" כמשאל השבועי המרכזי במקומה?`
         );
-        if (activeWeekly) {
-          const confirmSwitch = window.confirm(
-            `קיימת כבר זירה שבועית פעילה כעת ("${activeWeekly.title}").\nהאם לנעול אותה ולהעלות את הזירה "${targetTopic.title}" כמשאל השבועי המרכזי במקומה?`
-          );
-          if (!confirmSwitch) {
-            setIsProcessingAction(false);
-            return;
-          }
-          await updateTopic(activeWeekly.id, {
-            closes_at: new Date().toISOString(),
-            submissions_close_at: new Date().toISOString()
-          });
-        }
+        if (!confirmSwitch) return;
+        
+        // Optimistically close previous weekly
+        const closedPrev: Topic = {
+          ...activeWeekly,
+          closes_at: new Date().toISOString(),
+          submissions_close_at: new Date().toISOString()
+        };
+        onTopicUpdated(closedPrev);
+        updateTopic(activeWeekly.id, {
+          closes_at: closedPrev.closes_at,
+          submissions_close_at: closedPrev.submissions_close_at
+        }).catch(console.error);
       }
-
-      const now = new Date();
-      const startsAt = now.toISOString();
-      const submissionsClose = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
-      const closesAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
-
-      const updated = await updateTopic(targetTopic.id, {
-        starts_at: startsAt,
-        submissions_close_at: submissionsClose,
-        closes_at: closesAt
-      });
-
-      onTopicUpdated(updated);
-      setManagingTopic(null);
-      setActionSuccess(`הזירה "${targetTopic.title}" עלתה לאוויר בהצלחה! 🚀 חלון ההיגדים פתוח ל-48 שעות והמשאל ל-${durationDays} ימים.`);
-      setTimeout(() => setActionSuccess(null), 5000);
-    } catch (err: any) {
-      alert(err.message || 'שגיאה בהעלאת הזירה לאוויר');
-    } finally {
-      setIsProcessingAction(false);
     }
+
+    const now = new Date();
+    const startsAt = now.toISOString();
+    const submissionsClose = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+    const closesAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // Optimistic instantaneous update (0ms!)
+    const optimistic: Topic = {
+      ...targetTopic,
+      starts_at: startsAt,
+      submissions_close_at: submissionsClose,
+      closes_at: closesAt
+    };
+    onTopicUpdated(optimistic);
+    setManagingTopic(null);
+    setActionSuccess(`הזירה "${targetTopic.title}" עלתה לאוויר בהצלחה! 🚀 חלון ההיגדים פתוח ל-48 שעות והמשאל ל-${durationDays} ימים.`);
+    setTimeout(() => setActionSuccess(null), 4000);
+
+    // Sync in background
+    updateTopic(targetTopic.id, {
+      starts_at: startsAt,
+      submissions_close_at: submissionsClose,
+      closes_at: closesAt
+    }).then(serverUpdated => {
+      onTopicUpdated(serverUpdated);
+    }).catch(err => {
+      alert(err.message || 'שגיאה בהעלאת הזירה לאוויר');
+      onTopicUpdated(targetTopic);
+    });
   };
 
   const handleApplySchedule = async (targetTopic: Topic) => {
@@ -560,71 +571,85 @@ export const AdminView: React.FC<AdminViewProps> = ({
       return;
     }
 
-    setIsProcessingAction(true);
-    try {
-      const startsAt = launchDate.toISOString();
-      const submissionsClose = new Date(launchDate.getTime() + 48 * 60 * 60 * 1000).toISOString();
-      const closesAt = new Date(launchDate.getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString();
+    const startsAt = launchDate.toISOString();
+    const submissionsClose = new Date(launchDate.getTime() + 48 * 60 * 60 * 1000).toISOString();
+    const closesAt = new Date(launchDate.getTime() + scheduleDurationDays * 24 * 60 * 60 * 1000).toISOString();
 
-      const updated = await updateTopic(targetTopic.id, {
-        starts_at: startsAt,
-        submissions_close_at: submissionsClose,
-        closes_at: closesAt
-      });
+    // Optimistic instantaneous update (0ms!)
+    const optimistic: Topic = {
+      ...targetTopic,
+      starts_at: startsAt,
+      submissions_close_at: submissionsClose,
+      closes_at: closesAt
+    };
+    onTopicUpdated(optimistic);
+    setManagingTopic(null);
+    const formattedLaunch = launchDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    setActionSuccess(`התזמון נשמר בהצלחה! ⏳ הזירה מתוזמנת לעלות ב-${formattedLaunch}.`);
+    setTimeout(() => setActionSuccess(null), 4000);
 
-      onTopicUpdated(updated);
-      setManagingTopic(null);
-      const formattedLaunch = launchDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      setActionSuccess(`התזמון נשמר בהצלחה! ⏳ הזירה מתוזמנת לעלות ב-${formattedLaunch}.`);
-      setTimeout(() => setActionSuccess(null), 5000);
-    } catch (err: any) {
+    updateTopic(targetTopic.id, {
+      starts_at: startsAt,
+      submissions_close_at: submissionsClose,
+      closes_at: closesAt
+    }).then(serverUpdated => {
+      onTopicUpdated(serverUpdated);
+    }).catch(err => {
       alert(err.message || 'שגיאה בקביעת תזמון הזירה');
-    } finally {
-      setIsProcessingAction(false);
-    }
+      onTopicUpdated(targetTopic);
+    });
   };
 
   const handleKeepAsDraft = async (targetTopic: Topic) => {
-    setIsProcessingAction(true);
-    try {
-      const updated = await updateTopic(targetTopic.id, {
-        starts_at: null,
-        submissions_close_at: null,
-        closes_at: null
-      });
+    // Optimistic instantaneous update (0ms!)
+    const optimistic: Topic = {
+      ...targetTopic,
+      starts_at: null,
+      submissions_close_at: null,
+      closes_at: null
+    };
+    onTopicUpdated(optimistic);
+    setManagingTopic(null);
+    setActionSuccess(`הזירה "${targetTopic.title}" הועברה למאגר ללא תאריך. 📝`);
+    setTimeout(() => setActionSuccess(null), 3500);
 
-      onTopicUpdated(updated);
-      setManagingTopic(null);
-      setActionSuccess(`הזירה "${targetTopic.title}" הועברה למאגר ללא תאריך. 📝`);
-      setTimeout(() => setActionSuccess(null), 4000);
-    } catch (err: any) {
+    updateTopic(targetTopic.id, {
+      starts_at: null,
+      submissions_close_at: null,
+      closes_at: null
+    }).then(serverUpdated => {
+      onTopicUpdated(serverUpdated);
+    }).catch(err => {
       alert(err.message || 'שגיאה בהעברת הזירה לטיוטה');
-    } finally {
-      setIsProcessingAction(false);
-    }
+      onTopicUpdated(targetTopic);
+    });
   };
 
   const handleUnpublishClose = async (targetTopic: Topic) => {
     const confirmed = window.confirm(`האם להוריד מהאוויר ולנעול כעת את המשאל:\n"${targetTopic.title}"?\n\nההצבעות יינעלו מיידית והמשאל יסומן כמשאל שהסתיים.`);
     if (!confirmed) return;
 
-    setIsProcessingAction(true);
-    try {
-      const nowIso = new Date().toISOString();
-      const updated = await updateTopic(targetTopic.id, {
-        closes_at: nowIso,
-        submissions_close_at: nowIso
-      });
+    const nowIso = new Date().toISOString();
+    // Optimistic instantaneous update (0ms!)
+    const optimistic: Topic = {
+      ...targetTopic,
+      closes_at: nowIso,
+      submissions_close_at: nowIso
+    };
+    onTopicUpdated(optimistic);
+    setManagingTopic(null);
+    setActionSuccess(`המשאל "${targetTopic.title}" הורד מהאוויר וננעל בהצלחה! 🔒`);
+    setTimeout(() => setActionSuccess(null), 3500);
 
-      onTopicUpdated(updated);
-      setManagingTopic(null);
-      setActionSuccess(`המשאל "${targetTopic.title}" הורד מהאוויר וננעל בהצלחה! 🔒`);
-      setTimeout(() => setActionSuccess(null), 4000);
-    } catch (err: any) {
+    updateTopic(targetTopic.id, {
+      closes_at: nowIso,
+      submissions_close_at: nowIso
+    }).then(serverUpdated => {
+      onTopicUpdated(serverUpdated);
+    }).catch(err => {
       alert(err.message || 'שגיאה בהורדת המשאל מהאוויר');
-    } finally {
-      setIsProcessingAction(false);
-    }
+      onTopicUpdated(targetTopic);
+    });
   };
 
   const handleLaunchAsWeekly = async (targetTopic: Topic) => {
@@ -647,21 +672,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
         );
         if (!confirmSwitch) return;
 
-        await updateTopic(activeWeekly.id, {
+        const closedPrev: Topic = {
+          ...activeWeekly,
           closes_at: new Date().toISOString(),
           submissions_close_at: new Date().toISOString()
-        });
+        };
+        onTopicUpdated(closedPrev);
+        updateTopic(activeWeekly.id, {
+          closes_at: closedPrev.closes_at,
+          submissions_close_at: closedPrev.submissions_close_at
+        }).catch(console.error);
       }
     }
 
-    try {
-      const updated = await updateTopic(t.id, { topic_type: newType });
-      onTopicUpdated(updated);
-      setActionSuccess(`סטטוס הזירה "${t.title}" שונה ל-${typeLabel}!`);
-      setTimeout(() => setActionSuccess(null), 4000);
-    } catch (err: any) {
-      alert(err.message || 'שגיאה בשינוי סוג הזירה');
+    // Optimistic instantaneous update (0ms!)
+    const optimistic: Topic = { ...t, topic_type: newType };
+    onTopicUpdated(optimistic);
+    if (managingTopic?.id === t.id) {
+      setManagingTopic(optimistic);
     }
+    setActionSuccess(`סטטוס הזירה "${t.title}" שונה ל-${typeLabel}!`);
+    setTimeout(() => setActionSuccess(null), 3500);
+
+    updateTopic(t.id, { topic_type: newType }).then(serverUpdated => {
+      onTopicUpdated(serverUpdated);
+      if (managingTopic?.id === t.id) setManagingTopic(serverUpdated);
+    }).catch(err => {
+      alert(err.message || 'שגיאה בשינוי סוג הזירה');
+      onTopicUpdated(t);
+      if (managingTopic?.id === t.id) setManagingTopic(t);
+    });
   };
 
   const handleToggleTopicClosed = async (t: Topic) => {
@@ -671,26 +711,44 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if (isCurrentlyClosed) {
       const newClose = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       const newSubClose = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-      try {
-        const updated = await updateTopic(t.id, { closes_at: newClose, submissions_close_at: newSubClose });
-        onTopicUpdated(updated);
-        setActionSuccess(`המשאל "${t.title}" נפתח מחדש לשבוע הקרוב! 🔓`);
-        setTimeout(() => setActionSuccess(null), 4000);
-      } catch (err: any) {
+      
+      // Optimistic instantaneous update
+      const optimistic: Topic = {
+        ...t,
+        closes_at: newClose,
+        submissions_close_at: newSubClose
+      };
+      onTopicUpdated(optimistic);
+      setActionSuccess(`המשאל "${t.title}" נפתח מחדש לשבוע הקרוב! 🔓`);
+      setTimeout(() => setActionSuccess(null), 3500);
+
+      updateTopic(t.id, { closes_at: newClose, submissions_close_at: newSubClose }).then(serverUpdated => {
+        onTopicUpdated(serverUpdated);
+      }).catch(err => {
         alert(err.message || 'שגיאה בפתיחת המשאל');
-      }
+        onTopicUpdated(t);
+      });
     } else {
       const confirmed = window.confirm(`האם לנעול ולסגור כעת את המשאל:\n"${t.title}"?\n\nלאחר הנעילה לא יתקבלו הצבעות נוספות והמשאל יוצג כמשאל שהסתיים.`);
       if (!confirmed) return;
-      try {
-        const nowIso = new Date().toISOString();
-        const updated = await updateTopic(t.id, { closes_at: nowIso, submissions_close_at: nowIso });
-        onTopicUpdated(updated);
-        setActionSuccess(`המשאל "${t.title}" ננעל ונסגר בהצלחה! 🔒`);
-        setTimeout(() => setActionSuccess(null), 4000);
-      } catch (err: any) {
+
+      const nowIso = new Date().toISOString();
+      // Optimistic instantaneous update
+      const optimistic: Topic = {
+        ...t,
+        closes_at: nowIso,
+        submissions_close_at: nowIso
+      };
+      onTopicUpdated(optimistic);
+      setActionSuccess(`המשאל "${t.title}" ננעל ונסגר בהצלחה! 🔒`);
+      setTimeout(() => setActionSuccess(null), 3500);
+
+      updateTopic(t.id, { closes_at: nowIso, submissions_close_at: nowIso }).then(serverUpdated => {
+        onTopicUpdated(serverUpdated);
+      }).catch(err => {
         alert(err.message || 'שגיאה בנעילת המשאל');
-      }
+        onTopicUpdated(t);
+      });
     }
   };
 
