@@ -6,6 +6,7 @@ import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
 import { getTopicLifecycle, sortTopicsByLifecycle, getDefaultTopic } from './topicLifecycle';
 import { 
   DEFAULT_TOPIC, 
+  DEFAULT_TOPICS,
   DEFAULT_STATEMENTS, 
   DEFAULT_ANALYTICS,
   getCachedTopic,
@@ -42,7 +43,7 @@ export function App() {
   const initialDefaultTopic = sortedCachedTopics ? (getDefaultTopic(sortedCachedTopics) || sortedCachedTopics[0]) : DEFAULT_TOPIC;
   const initialTopic = (explicitTopicSlug ? (sortedCachedTopics?.find(t => t.id === explicitTopicSlug || t.slug === explicitTopicSlug) || getCachedTopic(explicitTopicSlug)) : null) || initialDefaultTopic || DEFAULT_TOPIC;
 
-  const [topics, setTopics] = useState<Topic[]>(() => sortedCachedTopics || [DEFAULT_TOPIC]);
+  const [topics, setTopics] = useState<Topic[]>(() => sortedCachedTopics || DEFAULT_TOPICS);
   const [currentTopic, setCurrentTopic] = useState<Topic>(() => initialTopic);
   const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>(() => {
     if (typeof window === 'undefined') return 'vote';

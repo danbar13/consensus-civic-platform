@@ -140,20 +140,21 @@ export async function cloudGetTopics() {
             const participants = new Set(votesList.map(v => v.session_id)).size;
 
             let resolvedType = topic.topic_type;
+            let resolvedStartsAt = topic.starts_at;
+            try {
+              const localRow = db.prepare('SELECT topic_type, starts_at FROM topics WHERE id = ?').get(topic.id);
+              if (!resolvedType && localRow?.topic_type) resolvedType = localRow.topic_type;
+              if (!resolvedStartsAt && localRow?.starts_at) resolvedStartsAt = localRow.starts_at;
+            } catch {}
             if (!resolvedType) {
-              try {
-                const localRow = db.prepare('SELECT topic_type FROM topics WHERE id = ?').get(topic.id);
-                resolvedType = localRow?.topic_type;
-              } catch {}
-              if (!resolvedType) {
-                resolvedType = topic.id === 'eilat-airbnb' ? 'special' : 'weekly';
-              }
+              resolvedType = 'weekly';
             }
 
             return {
               ...topic,
               groups,
               topic_type: resolvedType,
+              starts_at: resolvedStartsAt || topic.starts_at,
               stats: {
                 statementsCount: stCount || 0,
                 totalVotes: votesList.length,
@@ -221,6 +222,14 @@ export async function cloudGetTopic(id) {
 
       if (!error && data) {
         data.groups = typeof data.groups_json === 'string' ? JSON.parse(data.groups_json) : data.groups_json;
+        if (!data.starts_at || !data.topic_type) {
+          try {
+            const localRow = db.prepare('SELECT starts_at, topic_type FROM topics WHERE id = ?').get(id);
+            if (!data.starts_at && localRow?.starts_at) data.starts_at = localRow.starts_at;
+            if (!data.topic_type && localRow?.topic_type) data.topic_type = localRow.topic_type;
+          } catch {}
+        }
+        if (!data.topic_type) data.topic_type = 'weekly';
         result = data;
       }
     } catch (err) {
