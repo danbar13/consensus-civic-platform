@@ -79,7 +79,9 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, analytics, da
       const options = {
         quality: 0.95,
         pixelRatio: 2, // High resolution (300 DPI print quality)
-        backgroundColor: darkMode ? '#0f172a' : '#ffffff'
+        backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+        skipFonts: true,
+        cacheBust: true
       };
 
       const dataUrl = format === 'jpeg'
@@ -108,7 +110,9 @@ export const AIReportView: React.FC<AIReportViewProps> = ({ topic, analytics, da
     try {
       const options = {
         pixelRatio: 2,
-        backgroundColor: darkMode ? '#0f172a' : '#ffffff'
+        backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+        skipFonts: true,
+        cacheBust: true
       };
 
       const blob = await toBlob(infographicsRef.current, options);
