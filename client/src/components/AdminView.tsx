@@ -66,6 +66,8 @@ interface AdminViewProps {
   onReturnToPitch?: () => void;
   onNavigateToVote?: () => void;
   onNavigateToReport?: () => void;
+  triggerNewTopicModal?: boolean;
+  onResetTriggerNewTopic?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -80,7 +82,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onSelectTopic,
   onReturnToPitch,
   onNavigateToVote,
-  onNavigateToReport
+  onNavigateToReport,
+  triggerNewTopicModal,
+  onResetTriggerNewTopic
 }) => {
   const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
   const [statements, setStatements] = useState<Statement[]>([]);
@@ -253,6 +257,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
     loadStatements();
   }, [currentTopic.id, statusFilter, adminSubTab]);
 
+  // Handle external trigger to open new topic modal (e.g. from top header button)
+  useEffect(() => {
+    if (triggerNewTopicModal) {
+      setAdminSubTab('topics');
+      setShowNewTopicModal(true);
+      setErrorMessage(null);
+      if (suggestedStatements.length === 0) {
+        loadSuggestions(newTopicCategory, newTopicTitle);
+      }
+      if (onResetTriggerNewTopic) {
+        onResetTriggerNewTopic();
+      }
+    }
+  }, [triggerNewTopicModal]);
+
   // Load suggestions whenever modal opens or category changes
   const loadSuggestions = async (category: string, title?: string) => {
     setLoadingSuggestions(true);
@@ -263,6 +282,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         organization: newTopicOrg
       });
       setSuggestedStatements(list);
+      // Auto pre-select first 5 suggestions so the creation button is immediately active and not locked
+      setSelectedStatements(prev => prev.length === 0 ? list.slice(0, 5) : prev);
     } catch (err) {
       console.error('Failed to load suggestions:', err);
     } finally {

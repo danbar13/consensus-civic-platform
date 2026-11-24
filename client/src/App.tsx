@@ -127,6 +127,8 @@ export function App() {
     }
   });
 
+  const [triggerNewTopic, setTriggerNewTopic] = useState(false);
+
   // Initialize session and topics on mount
   useEffect(() => {
     const sid = getOrCreateSessionId();
@@ -240,7 +242,10 @@ export function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         onSelectTopic={handleSelectTopic}
-        onOpenNewTopic={() => setActiveTab('admin')}
+        onOpenNewTopic={() => {
+          setActiveTab('admin');
+          setTriggerNewTopic(true);
+        }}
         onOpenEmbed={() => setEmbedModalOpen(true)}
         onAdminLogout={() => {
           clearAdminToken();
@@ -324,6 +329,8 @@ export function App() {
                 onSelectTopic={handleSelectTopic}
                 onReturnToPitch={showReturnToPitch ? () => setActiveTab('pitch') : undefined}
                 onNavigateToVote={() => setActiveTab('vote')}
+                triggerNewTopicModal={triggerNewTopic}
+                onResetTriggerNewTopic={() => setTriggerNewTopic(false)}
               />
             )}
 
