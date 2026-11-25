@@ -460,12 +460,10 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2 self-end md:self-auto">
                 <button
                   onClick={() => {
-                    if (window.confirm('מעבר לתצוגת שאלון תושב (אזרחי).\n\nתוכל לחזור למסך הניהול בכל שלב דרך הקישור בתחתית הדף.\nהאם להמשיך?')) {
-                      onSelectTab('vote');
-                    }
+                    onSelectTab('vote');
                   }}
                   className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 transition cursor-pointer"
-                  title="צפייה בשאלון כפי שהוא מוצג לתושב"
+                  title="מעבר מיידי לצפייה בשאלון כפי שהוא מוצג לתושב"
                 >
                   <Eye className="w-4 h-4" />
                   <span>שאלון תושב 👁️</span>

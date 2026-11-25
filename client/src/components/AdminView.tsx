@@ -117,6 +117,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return cached.filter(s => s.status === 'approved');
   });
   const [selectedQueueIds, setSelectedQueueIds] = useState<number[]>([]);
+  const [hatFilter, setHatFilter] = useState<string>('all');
   const [batchApproving, setBatchApproving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
@@ -1489,6 +1490,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             {/* Column 6: Action Buttons */}
                             <td className="py-3.5 px-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center gap-1.5">
+                                {/* Direct view in Citizen Questionnaire */}
+                                <button
+                                  onClick={() => {
+                                    onSelectTopic(t.id);
+                                    if (onNavigateToVote) onNavigateToVote();
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="מעבר מיידי לשאלון תושב (הצבעה וצפייה בכובעים ובהיגדים)"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>שאלון תושב</span>
+                                </button>
+
                                 {/* Open Lifecycle & Schedule Modal */}
                                 <button
                                   onClick={() => handleOpenManageTopic(t)}
@@ -1579,12 +1593,28 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={() => setManagingTopic(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onNavigateToVote && (
+                  <button
+                    onClick={() => {
+                      onSelectTopic(managingTopic.id);
+                      setManagingTopic(null);
+                      onNavigateToVote();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                    title="מעבר מיידי לשאלון תושב של זירה זו (הצבעה וצפייה בכובעים ובהיגדים)"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>פתח שאלון תושב 👁️</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setManagingTopic(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Action Cards Grid */}
@@ -1879,10 +1909,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     setManagingTopic(null);
                     setAdminSubTab('moderation');
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  title="עבור למאגר ההיגדים והכובעים של זירה זו"
                 >
-                  <span>בחר ללוח ונהל היגדים ➔</span>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>מאגר היגדים וכובעים ➔</span>
                 </button>
+
+                {onNavigateToVote && (
+                  <button
+                    onClick={() => {
+                      onSelectTopic(managingTopic.id);
+                      setManagingTopic(null);
+                      onNavigateToVote();
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="מעבר מיידי לשאלון תושב של זירה זו (הצבעה וצפייה בכובעים ובהיגדים)"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>מעבר לשאלון תושב ➔</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2136,6 +2183,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           {item.status === 'pending_approval' && (
                             <span className="text-amber-600 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">ממתין לאישור עורך (One-Click)</span>
                           )}
+                          {(() => {
+                            const group = (currentTopic.groups || []).find(g => g.id === item.author_group);
+                            if (group) {
+                              return (
+                                <span 
+                                  className="text-[11px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1.5"
+                                  style={{
+                                    backgroundColor: `${group.color}15`,
+                                    borderColor: `${group.color}40`,
+                                    color: group.color
+                                  }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
+                                  <span>כובע: {group.label}</span>
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -2166,6 +2232,79 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
         )}
+
+        {/* Topic Stakeholder Hats Overview */}
+        {(() => {
+          const topicGroups = currentTopic.groups || (typeof currentTopic.groups_json === 'string' ? JSON.parse(currentTopic.groups_json || '[]') : currentTopic.groups_json) || [];
+          return (
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">
+                    <Users className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>כובעי ההצבעה (קבוצות הזיקה) שהוגדרו לזירה זו:</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-bold">
+                        {topicGroups.length} כובעים
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      כל מצביע בוחר כובע לפני ההצבעה, וכל היגד במאגר משויך לכובע המייצג את האינטרס שממנו נולד
+                    </p>
+                  </div>
+                </div>
+
+                {onNavigateToVote && (
+                  <button
+                    onClick={() => {
+                      onSelectTopic(currentTopic.id);
+                      onNavigateToVote();
+                    }}
+                    className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                    title="מעבר מיידי לשאלון תושב של זירה זו (הצבעה וצפייה בכובעים ובהיגדים)"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>פתח שאלון תושב 👁️</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                {topicGroups.map(grp => {
+                  const countForGroup = allStatements.filter(s => s.author_group === grp.id).length;
+                  return (
+                    <div 
+                      key={grp.id}
+                      className="p-3 rounded-xl border flex items-center justify-between gap-2 transition shadow-2xs"
+                      style={{
+                        backgroundColor: `${grp.color}10`,
+                        borderColor: `${grp.color}35`
+                      }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-3 h-3 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: grp.color }} />
+                        <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                          {grp.label}
+                        </span>
+                      </div>
+                      <span 
+                        className="text-[11px] font-black px-2 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: `${grp.color}25`,
+                          color: grp.color
+                        }}
+                      >
+                        {countForGroup} היגדים
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <div>
@@ -2231,17 +2370,66 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
 
+        {/* Hat Filter Pills */}
+        {(() => {
+          const topicGroups = currentTopic.groups || (typeof currentTopic.groups_json === 'string' ? JSON.parse(currentTopic.groups_json || '[]') : currentTopic.groups_json) || [];
+          if (topicGroups.length === 0) return null;
+          return (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+              <span className="text-[11px] font-bold text-slate-400 shrink-0 ml-1">סינון לפי כובע:</span>
+              <button
+                onClick={() => setHatFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
+                  hatFilter === 'all'
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-2xs'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                כל הכובעים ({statements.length})
+              </button>
+              {topicGroups.map(grp => {
+                const count = statements.filter(s => s.author_group === grp.id).length;
+                return (
+                  <button
+                    key={grp.id}
+                    onClick={() => setHatFilter(grp.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                      hatFilter === grp.id
+                        ? 'ring-2 ring-blue-500 shadow-xs font-black'
+                        : 'opacity-75 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: `${grp.color}12`,
+                      borderColor: `${grp.color}40`,
+                      color: grp.color
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: grp.color }} />
+                    <span>{grp.label} ({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Statements Table */}
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {statements.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-              לא נמצאו היגדים בסטטוס שנבחר.
-            </div>
-          ) : (
-            statements.map(st => (
+          {(() => {
+            const topicGroups = currentTopic.groups || (typeof currentTopic.groups_json === 'string' ? JSON.parse(currentTopic.groups_json || '[]') : currentTopic.groups_json) || [];
+            const displayedStatements = hatFilter === 'all' ? statements : statements.filter(s => s.author_group === hatFilter);
+            if (displayedStatements.length === 0) {
+              return (
+                <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
+                  לא נמצאו היגדים בסטטוס ובכובע שנבחרו.
+                </div>
+              );
+            }
+
+            return displayedStatements.map(st => (
               <div key={st.id} className="py-4 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-xs text-slate-400 dark:text-slate-500">#{st.id}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
                       st.status === 'approved'
@@ -2261,6 +2449,34 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         הצעת גולש
                       </span>
                     )}
+
+                    {/* Author Group / Hat Tag */}
+                    {(() => {
+                      const group = topicGroups.find(g => g.id === st.author_group);
+                      if (group) {
+                        return (
+                          <span 
+                            className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 shadow-2xs"
+                            style={{
+                              backgroundColor: `${group.color}15`,
+                              borderColor: `${group.color}40`,
+                              color: group.color
+                            }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
+                            <span>כובע: {group.label}</span>
+                          </span>
+                        );
+                      }
+                      if (st.author_group) {
+                        return (
+                          <span className="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-md">
+                            כובע: {st.author_group}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {/* Actions Bar */}
@@ -2339,8 +2555,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </p>
                 )}
               </div>
-            ))
-          )}
+            ));
+          })()}
         </div>
       </div>
         );
