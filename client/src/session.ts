@@ -75,3 +75,20 @@ export function saveGroup(topicId: string, groupId: string): void {
   const key = `consensus_group_${topicId}`;
   localStorage.setItem(key, groupId);
 }
+
+export function getSavedUserVotes(topicId: string): Record<number, { vote: number; group_id: string }> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`consensus_user_votes_${topicId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveUserVotes(topicId: string, votes: Record<number, { vote: number; group_id: string }>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`consensus_user_votes_${topicId}`, JSON.stringify(votes));
+  } catch {}
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { Topic, Statement, TopicAnalytics } from './types';
 import { fetchTopics, fetchAnalytics, fetchStatements, fetchUserVotes, clearAdminToken } from './api';
-import { getOrCreateSessionId, getSavedGroup, saveGroup } from './session';
+import { getOrCreateSessionId, getSavedGroup, saveGroup, getSavedUserVotes, saveUserVotes } from './session';
 import { getTopicLifecycle, sortTopicsByLifecycle, getDefaultTopic } from './topicLifecycle';
 import { 
   DEFAULT_TOPIC, 
@@ -41,10 +41,10 @@ export function App() {
   const cachedTopics = getCachedTopics();
   const sortedCachedTopics = cachedTopics ? sortTopicsByLifecycle(cachedTopics) : null;
   const initialDefaultTopic = sortedCachedTopics ? (getDefaultTopic(sortedCachedTopics) || sortedCachedTopics[0]) : DEFAULT_TOPIC;
-  const initialTopic = (explicitTopicSlug ? (sortedCachedTopics?.find(t => t.id === explicitTopicSlug || t.slug === explicitTopicSlug) || getCachedTopic(explicitTopicSlug)) : null) || initialDefaultTopic || DEFAULT_TOPIC;
+  const initialSelectedTopic = (explicitTopicSlug ? (sortedCachedTopics?.find(t => t.id === explicitTopicSlug || t.slug === explicitTopicSlug) || getCachedTopic(explicitTopicSlug)) : null) || getCachedTopic() || initialDefaultTopic || DEFAULT_TOPIC;
 
   const [topics, setTopics] = useState<Topic[]>(() => sortedCachedTopics || DEFAULT_TOPICS);
-  const [currentTopic, setCurrentTopic] = useState<Topic>(() => initialTopic);
+  const [currentTopic, setCurrentTopic] = useState<Topic>(() => initialSelectedTopic);
   const [activeTab, setActiveTab] = useState<'vote' | 'dashboard' | 'report' | 'admin' | 'pitch'>(() => {
     if (typeof window === 'undefined') return 'vote';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -53,11 +53,13 @@ export function App() {
     }
     return 'vote';
   });
-  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(() => getCachedAnalytics(initialTopic.id) || DEFAULT_ANALYTICS);
-  const [statements, setStatements] = useState<Statement[]>(() => getCachedStatements(initialTopic.id) || DEFAULT_STATEMENTS);
-  const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>({});
+  const [analytics, setAnalytics] = useState<TopicAnalytics | null>(() => getCachedAnalytics(initialSelectedTopic.id) || DEFAULT_ANALYTICS);
+  const [statements, setStatements] = useState<Statement[]>(() => getCachedStatements(initialSelectedTopic.id) || DEFAULT_STATEMENTS);
+  const [userVotes, setUserVotes] = useState<Record<number, { vote: number; group_id: string }>>(() => {
+    return getSavedUserVotes(initialSelectedTopic.id) || {};
+  });
   const [currentGroup, setCurrentGroup] = useState<string>(() => {
-    return getSavedGroup(initialTopic.id, initialTopic.groups[0]?.id || 'residents');
+    return getSavedGroup(initialSelectedTopic.id, initialSelectedTopic.groups[0]?.id || 'residents');
   });
   const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -73,17 +75,8 @@ export function App() {
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-  }, []);
-
-  useEffect(() => {
-    // Only scroll to top when switching major tabs (not when updating topics inside admin)
-    if (activeTab !== 'admin') {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    }
-  }, [activeTab]);
+    if (document.body) document.body.scrollTop = 0;
+  }, [activeTab, currentTopic?.id]);
 
   // Dark Mode State with URL parameter, LocalStorage persistence and system preference fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -203,6 +196,7 @@ export function App() {
       setUserVotes(votesData);
       setCachedAnalytics(topicId, analyticsData);
       setCachedStatements(topicId, statementsData);
+      saveUserVotes(topicId, votesData);
     } catch (err) {
       console.error('Error loading topic data:', err);
     }
@@ -218,9 +212,16 @@ export function App() {
     const grp = getSavedGroup(t.id, t.groups[0]?.id || 'residents');
     setCurrentGroup(grp);
 
-    // 2. Instantly update analytics and statements in 0ms (optimistic cache)
+    // 2. Instantly update analytics, statements and user votes in 0ms (optimistic cache)
     const cachedA = getCachedAnalytics(t.id);
     const cachedS = getCachedStatements(t.id);
+    const cachedV = getSavedUserVotes(t.id);
+
+    if (cachedV) {
+      setUserVotes(cachedV);
+    } else {
+      setUserVotes({});
+    }
 
     if (cachedA && cachedA.topic?.id === t.id) {
       setAnalytics(cachedA);
@@ -263,10 +264,14 @@ export function App() {
   const analyticsTimerRef = useRef<any>(null);
 
   const handleVoteCast = (statementId: number, voteVal: number) => {
-    setUserVotes(prev => ({
-      ...prev,
-      [statementId]: { vote: voteVal, group_id: currentGroup }
-    }));
+    setUserVotes(prev => {
+      const updated = {
+        ...prev,
+        [statementId]: { vote: voteVal, group_id: currentGroup }
+      };
+      if (currentTopic) saveUserVotes(currentTopic.id, updated);
+      return updated;
+    });
 
     // Debounce background analytics reload by 1500ms so voting runs with zero network contention
     if (analyticsTimerRef.current) {
@@ -280,13 +285,20 @@ export function App() {
   };
 
   const handleStatementAdded = (newSt: Statement) => {
-    setStatements(prev => [...prev, newSt]);
+    setStatements(prev => {
+      const updated = prev.some(s => s.id === newSt.id) ? prev : [...prev, newSt];
+      if (currentTopic) setCachedStatements(currentTopic.id, updated);
+      return updated;
+    });
     if (currentTopic) {
       fetchAnalytics(currentTopic.id).then(a => setAnalytics(a)).catch(console.error);
     }
   };
 
   const handleSelectTab = (tab: 'vote' | 'dashboard' | 'report' | 'admin' | 'pitch') => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
     if (tab === 'admin') {
       // ברירת המחדל בהצגת זירה בניהול היא הזירה שבאוויר כרגע
       const currentLc = currentTopic ? getTopicLifecycle(currentTopic) : null;

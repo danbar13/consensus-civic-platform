@@ -468,21 +468,40 @@ export async function cloudDeleteTopic(topicId) {
 // STATEMENTS
 // -------------------------------------------------------------
 
+let lastAutoPublishCheck = 0;
+function runBackgroundAutoPublishCheck(nowIso) {
+  const now = Date.now();
+  if (now - lastAutoPublishCheck < 60000) return;
+  lastAutoPublishCheck = now;
+
+  try {
+    db.prepare(`
+      UPDATE statements 
+      SET status = 'approved' 
+      WHERE (status = 'scheduled_auto' OR status = 'pending') 
+        AND auto_publish_at IS NOT NULL 
+        AND auto_publish_at <= ?
+    `).run(nowIso);
+  } catch {}
+
+  if (isSupabaseActive && supabase) {
+    supabase
+      .from('statements')
+      .update({ status: 'approved' })
+      .in('status', ['scheduled_auto', 'pending'])
+      .not('auto_publish_at', 'is', null)
+      .lte('auto_publish_at', nowIso)
+      .then(() => {})
+      .catch(() => {});
+  }
+}
+
 export async function cloudGetStatements(topicId, status) {
   const nowIso = new Date().toISOString();
+  runBackgroundAutoPublishCheck(nowIso);
 
   if (isSupabaseActive && supabase) {
     try {
-      // Auto-publish any scheduled statements whose timer elapsed
-      try {
-        await supabase
-          .from('statements')
-          .update({ status: 'approved' })
-          .in('status', ['scheduled_auto', 'pending'])
-          .not('auto_publish_at', 'is', null)
-          .lte('auto_publish_at', nowIso);
-      } catch {}
-
       let query = supabase.from('statements').select('*').eq('topic_id', topicId);
       if (status && status !== 'all') {
         if (status === 'pending_approval' || status === 'pending') {

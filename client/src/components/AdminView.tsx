@@ -100,9 +100,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onResetTriggerNewTopic
 }) => {
   const [adminSubTab, setAdminSubTab] = useState<'moderation' | 'report' | 'results' | 'topics' | 'observability' | 'embed'>('moderation');
-  const [statements, setStatements] = useState<Statement[]>([]);
-  const [allStatements, setAllStatements] = useState<Statement[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'approved' | 'rejected' | 'queue'>('approved');
+  const [allStatements, setAllStatements] = useState<Statement[]>(() => {
+    return getCachedStatements(currentTopic.id) || [];
+  });
+  const [statusFilter, setStatusFilter] = useState<'approved' | 'rejected' | 'queue'>(() => {
+    const cached = getCachedStatements(currentTopic.id) || [];
+    const hasPending = cached.some(s => s.status === 'pending' || s.status === 'pending_approval' || s.status === 'scheduled_auto');
+    return hasPending ? 'queue' : 'approved';
+  });
+  const [statements, setStatements] = useState<Statement[]>(() => {
+    const cached = getCachedStatements(currentTopic.id) || [];
+    const hasPending = cached.some(s => s.status === 'pending' || s.status === 'pending_approval' || s.status === 'scheduled_auto');
+    if (hasPending) {
+      return cached.filter(s => s.status === 'pending' || s.status === 'pending_approval' || s.status === 'scheduled_auto');
+    }
+    return cached.filter(s => s.status === 'approved');
+  });
   const [selectedQueueIds, setSelectedQueueIds] = useState<number[]>([]);
   const [batchApproving, setBatchApproving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -295,7 +308,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   useEffect(() => {
     loadStatements();
-  }, [currentTopic.id, statusFilter, adminSubTab]);
+    // Auto-poll every 8 seconds on moderation tab so newly submitted statements appear automatically
+    if (adminSubTab === 'moderation' && isAdminAuthenticated) {
+      const interval = setInterval(() => {
+        loadStatements();
+      }, 8000);
+      return () => clearInterval(interval);
+    }
+  }, [currentTopic.id, statusFilter, adminSubTab, isAdminAuthenticated]);
+
+  // Scroll to top unconditionally on password screen mount or auth change
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, [isAdminAuthenticated]);
 
   // Handle external trigger to open new topic modal (e.g. from top header button)
   useEffect(() => {
@@ -857,8 +884,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Password Lock Screen for Unauthenticated Admin Access
   if (!isAdminAuthenticated) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl border border-slate-200 dark:border-slate-800 space-y-6 text-center">
+      <div className="max-w-md mx-auto px-4 py-4 sm:py-12 animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-800 space-y-5 sm:space-y-6 text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner">
             <Lock className="w-8 h-8" />
           </div>
