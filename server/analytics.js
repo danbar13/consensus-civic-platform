@@ -90,7 +90,17 @@ export function computeTopicAnalytics(topicId, customData = null) {
     let isBridging = false;
     let isDivisive = false;
 
-    if (activeGroupSupports.length > 0) {
+    // Statistical Quorum & Multi-Group Validation for Consensus:
+    // A statement can only be a "Bridging Statement" (הצהרת גשר) if:
+    // 1. Quorum: It has reached at least 5 decisive votes (agrees + disagrees).
+    // 2. Cross-group participation: If the topic defines multiple groups (>1), 
+    //    at least 2 distinct groups must have voted on this statement.
+    // 3. Multi-group agreement: Every participating group must have >= 60% agreement.
+    // 4. Overall agreement: Across all voters, support must be >= 65%.
+    const minDecisiveQuorum = 5;
+    const requiredActiveGroups = groups.length > 1 ? 2 : 1;
+
+    if (decisiveTotal >= minDecisiveQuorum && activeGroupSupports.length >= requiredActiveGroups) {
       const minSupport = Math.min(...activeGroupSupports);
       const maxSupport = Math.max(...activeGroupSupports);
       const spread = maxSupport - minSupport; // in percentage points 0..100
@@ -102,7 +112,7 @@ export function computeTopicAnalytics(topicId, customData = null) {
       bridgingScore = Math.round(minSupport * (1 - spreadRatio * 0.5));
       divisiveScore = Math.round(spread);
 
-      // Criteria from PRD:
+      // Criteria:
       // Bridging if every active group has >= 60% agreement AND overall agreement is >= 65%
       const allGroupsHigh = activeGroupSupports.every(p => p >= 60);
       if (allGroupsHigh && overallSupport >= 65) {
@@ -113,6 +123,14 @@ export function computeTopicAnalytics(topicId, customData = null) {
       if (divisiveScore >= 35) {
         isDivisive = true;
       }
+    } else if (decisiveTotal > 0) {
+      // Preliminary votes gathered, but has not reached the statistical quorum yet.
+      divisiveScore = activeGroupSupports.length > 1 
+        ? Math.round(Math.max(...activeGroupSupports) - Math.min(...activeGroupSupports))
+        : 0;
+      bridgingScore = 0;
+      isBridging = false;
+      isDivisive = false;
     }
 
     return {
@@ -138,19 +156,22 @@ export function computeTopicAnalytics(topicId, customData = null) {
     };
   });
 
-  // Sort statements for special views
-  const topBridging = [...analyzedStatements]
+  // Sort statements for special views:
+  // topBridging: only statements that actually qualify as isBridging or meet quorum with high bridgingScore
+  const topBridging = analyzedStatements
+    .filter(s => s.isBridging || (s.votesSummary.decisiveTotal >= 5 && s.bridgingScore >= 50))
     .sort((a, b) => b.bridgingScore - a.bridgingScore);
 
   const topDivisive = [...analyzedStatements]
     .filter(s => s.isDivisive || s.divisiveScore >= 30)
     .sort((a, b) => b.divisiveScore - a.divisiveScore);
 
-  // Overall Consensus Index
+  // Overall Consensus Index (calculated over statements that reached quorum)
   const bridgingCount = analyzedStatements.filter(s => s.isBridging).length;
-  const avgBridging = analyzedStatements.length > 0
-    ? Math.round(analyzedStatements.reduce((acc, s) => acc + s.bridgingScore, 0) / analyzedStatements.length)
-    : 0;
+  const establishedStatements = analyzedStatements.filter(s => s.votesSummary.decisiveTotal >= 5);
+  const avgBridging = establishedStatements.length > 0
+    ? Math.round(establishedStatements.reduce((acc, s) => acc + s.bridgingScore, 0) / establishedStatements.length)
+    : (analyzedStatements.length > 0 ? Math.round(analyzedStatements.reduce((acc, s) => acc + s.bridgingScore, 0) / analyzedStatements.length) : 0);
 
   return {
     topic: {
