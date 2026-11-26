@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Topic, Statement } from '../types';
 import { submitVote, submitStatement } from '../api';
-import { getDeviceFingerprint } from '../session';
+import { getDeviceFingerprint, getSavedUserVotes } from '../session';
 import { 
   ThumbsUp, 
   ThumbsDown, 
@@ -98,7 +98,6 @@ export const VoteView: React.FC<VoteViewProps> = ({
   };
 
   const shortTopicTitle = formatShortTopicTitle(topic.title);
-  const topicsList = topics && topics.length > 0 ? topics : [topic];
 
   // Determine current statement to display
   let currentStatement: Statement | null = null;
@@ -288,6 +287,18 @@ export const VoteView: React.FC<VoteViewProps> = ({
   const hasMultipleLiveTopics = liveTopics.length > 1;
   const hasParallelSpecial = activeSpecialTopics.length > 0;
 
+  // Historical topics in which the current user actually participated/voted (closed only, never future or unvoted)
+  const historicalVotedTopics = (topics || []).filter(t => {
+    // Exclude current topic (already viewed and voted on in the current screen)
+    if (t.id === topic.id) return false;
+    // Must be past/closed topic - NEVER future (scheduled or draft)
+    const isPastClosed = Boolean(t.closes_at && new Date(t.closes_at).getTime() <= nowMs);
+    if (!isPastClosed) return false;
+    // The resident must have actually voted in this topic
+    const saved = getSavedUserVotes(t.id);
+    return Boolean(saved && Object.keys(saved).length > 0);
+  });
+
   // Render Helpers for Clean Modular Layout
   const renderVotesList = () => {
     const votedStatements = approvedStatements.filter(s => userVotes[s.id] !== undefined);
@@ -381,56 +392,41 @@ export const VoteView: React.FC<VoteViewProps> = ({
     );
   };
 
-  const renderTopicsList = () => {
+  const renderHistoricalTopicsList = () => {
     return (
       <div className="p-3 sm:p-4 pt-2 space-y-2.5 max-h-96 overflow-y-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {topicsList.map(t => {
-            const isCurrent = t.id === topic.id;
-            const isSpecial = t.topic_type === 'special';
+          {historicalVotedTopics.map(t => {
+            const savedVotes = getSavedUserVotes(t.id);
+            const votedCount = savedVotes ? Object.keys(savedVotes).length : 0;
 
             return (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => {
-                  if (onSelectTopic && !isCurrent) {
+                  if (onSelectTopic) {
                     onSelectTopic(t.id);
                   }
                 }}
-                disabled={isCurrent}
-                className={`p-3 rounded-xl border text-right transition-all flex flex-col justify-between text-xs ${
-                  isCurrent
-                    ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-500 shadow-xs ring-1 ring-blue-400/50 cursor-default'
-                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer opacity-90 hover:opacity-100'
-                }`}
+                className="p-3 rounded-xl border text-right transition-all flex flex-col justify-between text-xs bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer opacity-90 hover:opacity-100"
               >
                 <div>
                   <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
-                      isSpecial
-                        ? 'bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
-                        : 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200'
-                    }`}>
-                      {isSpecial ? '⚡ משאל בזק' : '📅 משאל שבועי'}
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      🔒 משאל שהסתיים
                     </span>
-                    {isCurrent ? (
-                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                        מוצג כעת ✓
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-slate-400 hover:text-blue-500">
-                        עבור למשאל ↗
-                      </span>
-                    )}
+                    <span className="text-[10px] font-bold text-slate-400 hover:text-blue-500">
+                      צפה בתוצאות ↗
+                    </span>
                   </div>
                   <div className="font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug">
                     {t.title}
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-400 mt-2 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-between">
-                  <span>{t.organization}</span>
-                  <span>{t.stats?.totalVotes || 0} הצבעות</span>
+                  <span>הצבעת על {votedCount} היגדים</span>
+                  <span>{t.stats?.totalVotes || 0} סה"כ הצבעות</span>
                 </div>
               </button>
             );
@@ -778,27 +774,29 @@ export const VoteView: React.FC<VoteViewProps> = ({
           {votesAccordionOpen && renderVotesList()}
         </div>
 
-        {/* Accordion 2: Switch Arena / Past Polls */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
-          <button
-            type="button"
-            onClick={() => setTopicsAccordionOpen(!topicsAccordionOpen)}
-            className="w-full px-4 sm:px-5 py-3 flex items-center justify-between text-right text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Compass className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="truncate">החלפת זירת דיון / סקרים קודמים</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                {topicsList.length} זירות
-              </span>
-              {topicsAccordionOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-            </div>
-          </button>
+        {/* Accordion 2: Only show historical arenas IF the resident actually voted in them */}
+        {historicalVotedTopics.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+            <button
+              type="button"
+              onClick={() => setTopicsAccordionOpen(!topicsAccordionOpen)}
+              className="w-full px-4 sm:px-5 py-3 flex items-center justify-between text-right text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <RotateCcw className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="truncate">זירות היסטוריות שהצבעת בהן</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  {historicalVotedTopics.length} זירות
+                </span>
+                {topicsAccordionOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </div>
+            </button>
 
-          {topicsAccordionOpen && renderTopicsList()}
-        </div>
+            {topicsAccordionOpen && renderHistoricalTopicsList()}
+          </div>
+        )}
       </div>
     );
   }
