@@ -151,6 +151,7 @@ export async function submitStatement(topicId: string, data: {
   session_id: string;
   device_fingerprint?: string;
   user_confirmed_reframing?: boolean;
+  override_duplicate?: boolean;
 }): Promise<{ 
   statement: Statement | null; 
   moderation: ModerationResult; 

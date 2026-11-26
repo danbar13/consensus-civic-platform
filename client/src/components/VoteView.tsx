@@ -197,7 +197,11 @@ export const VoteView: React.FC<VoteViewProps> = ({
   }, [currentStatement, currentGroup, isClosed]);
 
   // Handle submitting a new statement with Smart AI Funnel, Reframing & Deduplication
-  const handleAddStatementSubmit = async (textToSubmit?: string, isConfirmedReframing = false) => {
+  const handleAddStatementSubmit = async (
+    textToSubmit?: string, 
+    isConfirmedReframing = false,
+    isOverrideDuplicate = false
+  ) => {
     const targetText = (textToSubmit || newText).trim();
     if (!targetText) return;
 
@@ -212,11 +216,12 @@ export const VoteView: React.FC<VoteViewProps> = ({
         author_group: currentGroup,
         session_id: sessionId,
         device_fingerprint: getDeviceFingerprint(),
-        user_confirmed_reframing: isConfirmedReframing
+        user_confirmed_reframing: isConfirmedReframing,
+        override_duplicate: isOverrideDuplicate
       });
 
       // Requirement 2: Deduplication facing voter
-      if (res.isDuplicate || res.moderation?.isDuplicate) {
+      if (!isOverrideDuplicate && (res.isDuplicate || res.moderation?.isDuplicate)) {
         setModerationFeedback({
           ...res.moderation,
           isDuplicate: true,
@@ -237,7 +242,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
       }
 
       // Requirement 2: Direct blocking of noise/defamation
-      if (!res.moderation?.passed && !isConfirmedReframing) {
+      if (!res.moderation?.passed && !isConfirmedReframing && !isOverrideDuplicate) {
         setModerationFeedback(res.moderation);
         setIsEvaluatingAI(false);
         return;
@@ -251,7 +256,9 @@ export const VoteView: React.FC<VoteViewProps> = ({
         setNewText('');
         setModerationFeedback(null);
 
-        const statusMsg = res.statement.status === 'approved'
+        const statusMsg = isOverrideDuplicate
+          ? 'הצעתך נשלחה בהצלחה לבחינת עורך העיתון! 📨'
+          : res.statement.status === 'approved'
           ? 'רעיונך נבדק ואושר ע"י ה-AI והתווסף לשלב רעיונות התושבים! 🎉'
           : res.statement.status === 'scheduled_auto'
           ? 'הצעתך אושרה ע"י ה-AI ונכנסה לפרסום אוטומטי (Auto-Publish) בעוד 3 שעות! ⏱️'
@@ -595,6 +602,20 @@ export const VoteView: React.FC<VoteViewProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Override duplicate button: Resident can explain or submit anyway for editor review */}
+                  <div className="pt-2 border-t border-purple-200/60 dark:border-purple-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="text-[11px] text-purple-900/80 dark:text-purple-300/80">
+                      חושבים שההצעה שלכם שונה או מציעה מנגנון אחר?
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddStatementSubmit(newText, false, true)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <span>ההצעה שלי שונה ➔ שלח בכל זאת לאישור עורך</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -946,34 +967,23 @@ export const VoteView: React.FC<VoteViewProps> = ({
               מעולה! עמדתך נקלטה במדד הקונצנזוס העירוני 🎉
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-              השלמת את שאלון הליבה ({seedStatements.length} היגדי ברזל). עמדתך משוקללת בזמן אמת במפת ההסכמות והמחלוקות העירונית.
+              השלמת את שאלון הליבה ({seedStatements.length} היגדי ברזל). עמדתך משוקללת בזמן אמת במפת ההסכמות והמחלוקות העירונית (לצפייה בתוצאות לחצו על 'מפת הקונצנזוס' בסרגל העליון ⬆️).
             </p>
           </div>
 
-          {/* Primary & Conditional Secondary CTAs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
-            {/* Primary CTA */}
-            <button
-              type="button"
-              onClick={onNavigateToDashboard}
-              className="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-xs sm:text-sm shadow-md shadow-emerald-950/40 transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <BarChart3 className="w-4 h-4 shrink-0" />
-              <span>צפה במפת הקונצנזוס העירונית</span>
-            </button>
-
-            {/* Conditional Secondary CTA: Visible ONLY if unvotedCommunity.length > 0 */}
-            {unvotedCommunity.length > 0 && (
+          {/* Conditional Secondary CTA: Visible ONLY if unvotedCommunity.length > 0 */}
+          {unvotedCommunity.length > 0 && (
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={() => setViewingCommunityTier(true)}
-                className="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-purple-600/90 hover:bg-purple-600 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
+                className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-purple-600/90 hover:bg-purple-600 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
               >
                 <Sparkles className="w-4 h-4 text-purple-200 shrink-0" />
                 <span>המשך להצבעה על רעיונות תושבים ({unvotedCommunity.length} חדשים)</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* PROPOSAL BOX: Positioned immediately under Hero Status Card */}

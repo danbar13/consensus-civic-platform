@@ -353,7 +353,7 @@ app.get('/api/topics/:id/statements', async (req, res) => {
 // Submit a new statement (protected with rate limiter and smart AI funnel)
 app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) => {
   try {
-    const { text, author_group, session_id, device_fingerprint, user_confirmed_reframing } = req.body;
+    const { text, author_group, session_id, device_fingerprint, user_confirmed_reframing, override_duplicate } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'Statement text is required' });
     }
@@ -401,8 +401,8 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
     });
 
     // Requirement 2: Active deduplication facing the voter
-    // If AI detects that voter's idea is similar to an existing statement, do NOT save a new statement and do NOT send to editor!
-    if (moderation.isDuplicate) {
+    // If AI detects that voter's idea is similar to an existing statement and user hasn't overridden:
+    if (moderation.isDuplicate && !override_duplicate) {
       // Find matching statement to prompt immediate vote
       let matchedStatement = null;
       if (moderation.similarStatement) {
@@ -432,9 +432,9 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
     }
 
     // Requirement 2: Immediate noise/toxicity blocking
-    // If failed guardrails (curses / defamation / PII / gibberish) and not a constructive suggestion:
+    // If failed guardrails (curses / defamation / PII / gibberish) and not a constructive suggestion or override:
     // Blocked directly at the voter level — do NOT send to editor queue!
-    if (!moderation.passed && !user_confirmed_reframing) {
+    if (!moderation.passed && !user_confirmed_reframing && !override_duplicate) {
       return res.status(200).json({
         statement: null,
         moderation,
@@ -456,7 +456,10 @@ app.post('/api/topics/:id/statements', statementRateLimiter, async (req, res) =>
     let initialStatus = 'pending_approval';
     let autoPublishAt = null;
 
-    if (mode === 'instant_publish') {
+    if (override_duplicate) {
+      // If user explicitly claims their proposal is different, always route to human editor review
+      initialStatus = 'pending_approval';
+    } else if (mode === 'instant_publish') {
       initialStatus = 'approved';
     } else if (mode === 'auto_publish') {
       initialStatus = 'scheduled_auto';

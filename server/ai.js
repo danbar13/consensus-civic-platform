@@ -255,7 +255,10 @@ ${existingListText ? `
 ${existingListText}
 
 כלל קריטי למניעת כפילויות (Semantic Similarity & Deduplication Check):
-אם ההיגד שהמשתמש הציע מביע במהותו את אותו רעיון, אותה דרישה, אותה תלונה או אותו פתרון שכבר מופיע באחד ההיגדים הקיימים למעלה (גם אם בניסוח קצת שונה, מילים נרדפות או וריאציה תחבירית):
+שים לב: תושבים רבים יעסקו באותו נושא כללי (למשל חניה, רעש, מחירי טיסות, Airbnb), אך עם פתרונות שונים, מנגנונים שונים או נקודות מבט מנוגדות. זוהי אינה כפילות!
+סמן "isDuplicate": true אך ורק אם ההיגד שהוצע מציע במהותו בדיוק את אותו פתרון אופרטיבי, אותו מנגנון מעשי ואותה דרישה שכבר קיימת במפורש באחד מההיגדים ברשימה (גם אם בניסוח מילולי מעט שונה).
+אם ההיגד מציע כיוון אחר, פתרון שונה, התייחסות להיבט אחר של הסוגיה, או ניואנס משמעותי - חובה להגדיר "isDuplicate": false ו-"passed": true!
+אם זיהית כפילות מהותית מובהקת בלבד:
 - חובה להגדיר: "isDuplicate": true
 - חובה להגדיר: "passed": false
 - חובה להגדיר: "isRant": false
@@ -550,11 +553,19 @@ function simulatedHebrewModeration(text, existingStatements = []) {
 
   // Check for duplicate / high semantic overlap against existing statements
   if (Array.isArray(existingStatements) && existingStatements.length > 0) {
+    // Hebrew stop words that shouldn't trigger duplicate similarity
+    const STOP_WORDS = new Set([
+      'של', 'על', 'את', 'עם', 'כל', 'זה', 'זו', 'אלה', 'אלו', 'כדי', 'בין', 'יותר', 'פחות',
+      'אילת', 'עירייה', 'עיריית', 'העירייה', 'תושבים', 'התושבים', 'תושבי', 'שכונות', 'בשכונות',
+      'צריך', 'חייב', 'רוצה', 'ניתן', 'אפשר', 'טוב', 'רע', 'מה', 'מי', 'איך', 'למה', 'שם', 'כאן',
+      'יש', 'אין', 'לא', 'כן', 'גם', 'רק', 'אבל', 'או', 'אם', 'כי'
+    ]);
+
     const normalizeWords = (s) => (typeof s === 'string' ? s : s?.text || '')
       .toLowerCase()
-      .replace(/[^\u0590-\u05FFa-z0-9\s]/g, '')
+      .replace(/[^\u0590-\u05FFa-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length > 2)
+      .filter(w => w.length > 2 && !STOP_WORDS.has(w))
       .map(w => {
         let cleaned = w;
         // Strip common Hebrew prefixes (ו, ב, ל, מ, כ, ה, ש)
@@ -567,20 +578,22 @@ function simulatedHebrewModeration(text, existingStatements = []) {
           cleaned = cleaned.slice(0, -1);
         }
         return cleaned;
-      });
+      })
+      .filter(w => w.length > 2 && !STOP_WORDS.has(w));
 
     const inputWords = new Set(normalizeWords(text));
-    if (inputWords.size >= 3) {
+    if (inputWords.size >= 4) {
       for (const exist of existingStatements) {
         const existText = typeof exist === 'string' ? exist : exist?.text;
         if (!existText) continue;
         const existWords = normalizeWords(existText);
-        if (existWords.length < 3) continue;
+        if (existWords.length < 4) continue;
 
         const shared = existWords.filter(w => inputWords.has(w));
         const overlap = shared.length / Math.min(inputWords.size, existWords.length);
 
-        if (overlap >= 0.38 || shared.length >= 4) {
+        // High confidence match required for heuristic duplicate: at least 75% overlap and 5 shared content words
+        if (overlap >= 0.75 && shared.length >= 5) {
           return {
             passed: false,
             isDuplicate: true,
