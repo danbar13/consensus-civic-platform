@@ -72,7 +72,25 @@ export function getTopicLifecycle(t: Topic): TopicLifecycleInfo {
     };
   }
 
-  // 3. Active (Live): starts_at has passed or is null, and closes_at has not passed or is not set
+  // 3. Draft / Unscheduled in reservoir: neither starts_at nor closes_at is set
+  if (!startsAtMs && !closesAtMs) {
+    return {
+      status: 'draft',
+      label: 'ללא תזמון (במאגר)',
+      shortLabel: 'במאגר',
+      badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700',
+      dotClass: 'bg-slate-400',
+      headerBadgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+      description: 'במאגר – ללא תזמון',
+      startsAtFormatted: null,
+      submissionsCloseFormatted: null,
+      closesAtFormatted: null,
+      isWeekly,
+      rank: 3
+    };
+  }
+
+  // 4. Active (Live): starts_at has passed and closes_at is in the future
   return {
     status: 'active',
     label: 'פעילה באוויר',
@@ -80,7 +98,7 @@ export function getTopicLifecycle(t: Topic): TopicLifecycleInfo {
     badgeClass: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800',
     dotClass: 'bg-emerald-500 animate-pulse',
     headerBadgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-    description: closesAtMs ? `פתוחה להצבעות עד ${formatTopicDateTime(t.closes_at, true)}` : 'פתוחה להצבעות (ללא הגבלת זמן)',
+    description: closesAtMs ? `פתוחה להצבעות עד ${formatTopicDateTime(t.closes_at, true)}` : 'פתוחה להצבעות',
     startsAtFormatted: formatTopicDateTime(t.starts_at) || formatTopicDateTime(t.created_at) || 'פתוחה',
     submissionsCloseFormatted: formatTopicDateTime(t.submissions_close_at),
     closesAtFormatted: formatTopicDateTime(t.closes_at, true),

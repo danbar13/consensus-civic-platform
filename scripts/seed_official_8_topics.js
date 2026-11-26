@@ -136,10 +136,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'planners_env', label: 'פעילי סביבה ותכנון עירוני', color: '#059669' },
       { id: 'commerce_tourism', label: 'יזמים, מלונאים ועסקים', color: '#d97706' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 17,
@@ -196,10 +196,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'youth_commuters', label: 'בני נוער, חיילים ומשתמשי תח"צ', color: '#7c3aed' },
       { id: 'beach_businesses', label: 'מפעילי חופים ומסחר סובב', color: '#059669' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 25,
@@ -256,10 +256,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'local_retailers', label: 'סוחרים ורשתות מזון מקומיות', color: '#d97706' },
       { id: 'service_providers', label: 'בעלי מסעדות ומקומות בילוי', color: '#059669' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 33,
@@ -316,10 +316,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'employers', label: 'מעסיקים, הייטק ומנהלי ארגונים', color: '#d97706' },
       { id: 'public_sector', label: 'הנהגת העירייה ומוסדות חינוך', color: '#7c3aed' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 41,
@@ -376,10 +376,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'tourism_dev', label: 'יזמי תיירות, מלונאים ועסקי חוף', color: '#d97706' },
       { id: 'city_residents', label: 'תושבי העיר ומשתמשי החוף', color: '#2563eb' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 49,
@@ -436,10 +436,10 @@ export const OFFICIAL_TOPICS = [
       { id: 'medical_staff', label: 'רופאים, אחיות ועובדי מערכת הבריאות', color: '#059669' },
       { id: 'city_leadership', label: 'נציגי ציבור והנהלת בית חולים יוספטל', color: '#dc2626' }
     ],
-    // Live active arena
-    starts_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    submissions_close_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    closes_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Unscheduled in reservoir
+    starts_at: null,
+    submissions_close_at: null,
+    closes_at: null,
     statements: [
       {
         id: 57,

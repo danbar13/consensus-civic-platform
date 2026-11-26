@@ -288,6 +288,8 @@ export const VoteView: React.FC<VoteViewProps> = ({
     if (t.closes_at && new Date(t.closes_at).getTime() <= nowMs) return false;
     // 2. If starts_at exists and is in the future -> scheduled (not live yet)
     if (t.starts_at && new Date(t.starts_at).getTime() > nowMs) return false;
+    // 3. If neither starts_at nor closes_at is set -> unscheduled in reservoir (not live)
+    if (!t.starts_at && !t.closes_at) return false;
     return true;
   };
 
