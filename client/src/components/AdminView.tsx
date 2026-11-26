@@ -2196,7 +2196,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                   }}
                                 >
                                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
-                                  <span>כובע: {group.label}</span>
+                                  <span>נכתב מנקודת מבט: {group.label}</span>
                                 </span>
                               );
                             }
@@ -2251,7 +2251,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </span>
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      כל מצביע בוחר כובע לפני ההצבעה, וכל היגד במאגר משויך לכובע המייצג את האינטרס שממנו נולד
+                      כל מצביע בוחר כובע ומצביע על כל ההיגדים. כל היגד במאגר נכתב מנקודת מבט המייצגת את האינטרס שממנו נולד
                     </p>
                   </div>
                 </div>
@@ -2376,7 +2376,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           if (topicGroups.length === 0) return null;
           return (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
-              <span className="text-[11px] font-bold text-slate-400 shrink-0 ml-1">סינון לפי כובע:</span>
+              <span className="text-[11px] font-bold text-slate-400 shrink-0 ml-1">סינון לפי נקודת מבט:</span>
               <button
                 onClick={() => setHatFilter('all')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
@@ -2385,7 +2385,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                כל הכובעים ({statements.length})
+                כל נקודות המבט ({statements.length})
               </button>
               {topicGroups.map(grp => {
                 const count = statements.filter(s => s.author_group === grp.id).length;
@@ -2421,7 +2421,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             if (displayedStatements.length === 0) {
               return (
                 <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                  לא נמצאו היגדים בסטטוס ובכובע שנבחרו.
+                  לא נמצאו היגדים בסטטוס ובנקודת המבט שנבחרו.
                 </div>
               );
             }
@@ -2464,14 +2464,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             }}
                           >
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
-                            <span>כובע: {group.label}</span>
+                            <span>נכתב מנקודת מבט: {group.label}</span>
                           </span>
                         );
                       }
                       if (st.author_group) {
                         return (
                           <span className="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-md">
-                            כובע: {st.author_group}
+                            נכתב מנקודת מבט: {st.author_group}
                           </span>
                         );
                       }

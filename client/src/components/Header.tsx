@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Topic } from '../types';
-import { getTopicLifecycle, sortTopicsByLifecycle } from '../topicLifecycle';
+import { getTopicLifecycle, sortTopicsByLifecycle, getDefaultTopic } from '../topicLifecycle';
 import { 
   Compass, 
   BarChart3, 

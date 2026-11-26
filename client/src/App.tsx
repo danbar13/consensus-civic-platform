@@ -308,9 +308,15 @@ export function App() {
           handleSelectTopic(liveTopic.id);
         }
       }
+    } else if ((tab === 'vote' || tab === 'dashboard') && currentTopic) {
+      // Re-fetch statements & votes so newly added or approved statements in editor immediately reflect
+      loadTopicData(currentTopic.id, sessionId);
     }
     setActiveTab(tab);
   };
+
+  const liveActiveTopic = getDefaultTopic(topics);
+  const isViewingNonActiveTopic = activeTab !== 'admin' && currentTopic && liveActiveTopic && currentTopic.id !== liveActiveTopic.id;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
@@ -336,6 +342,34 @@ export function App() {
         onToggleDarkMode={toggleDarkMode}
         showReturnToPitch={showReturnToPitch}
       />
+
+      {/* Global Citizen Archive Bar - Immediate Return to Active Live Arena */}
+      {isViewingNonActiveTopic && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/5 border-b border-amber-500/40 px-4 py-2.5 sm:py-3 sticky top-0 sm:top-[74px] z-30 backdrop-blur-md transition-all shadow-xs">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs sm:text-sm">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 min-w-0">
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-900 dark:text-amber-300 font-black text-xs shrink-0 border border-amber-500/30">
+                🔒 זירה מהארכיון
+              </span>
+              <span className="truncate">
+                אתה צופה כעת בתוצאות זירה קודמת: <strong className="font-bold">{currentTopic.title}</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                handleSelectTopic(liveActiveTopic.id);
+                setActiveTab('vote');
+              }}
+              className="self-start sm:self-auto px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs shadow-md shadow-emerald-700/20 flex items-center gap-2 transition cursor-pointer shrink-0"
+              title={`מעבר למשאל הפעיל: ${liveActiveTopic.title}`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-200 animate-ping shrink-0" />
+              <span>חזרה לזירה הפעילה באוויר ➔</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
@@ -368,6 +402,8 @@ export function App() {
                 analytics={analytics}
                 onRefresh={() => currentTopic && loadTopicData(currentTopic.id, sessionId)}
                 onNavigateToVote={() => setActiveTab('vote')}
+                onSelectTopic={handleSelectTopic}
+                activeTopic={liveActiveTopic}
               />
             )}
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Topic, Statement } from '../types';
+import { getDefaultTopic } from '../topicLifecycle';
 import { submitVote, submitStatement } from '../api';
 import { getDeviceFingerprint, getSavedUserVotes } from '../session';
 import { 
@@ -55,6 +56,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
   const [microInsight, setMicroInsight] = useState<{ text: string; percent: number } | null>(null);
   const [votesAccordionOpen, setVotesAccordionOpen] = useState(false);
   const [topicsAccordionOpen, setTopicsAccordionOpen] = useState(false);
+  const liveActiveTopic = getDefaultTopic(topics);
 
   // New statement submission state
   const [newText, setNewText] = useState('');
@@ -243,6 +245,9 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
       if (res.statement) {
         onStatementAdded(res.statement);
+        if (res.statement.status === 'approved') {
+          handleVote(res.statement.id, 1);
+        }
         setNewText('');
         setModerationFeedback(null);
 
@@ -301,38 +306,68 @@ export const VoteView: React.FC<VoteViewProps> = ({
 
   // Render Helpers for Clean Modular Layout
   const renderVotesList = () => {
-    const votedStatements = approvedStatements.filter(s => userVotes[s.id] !== undefined);
-    if (votedStatements.length === 0) {
+    // Show all approved statements (both voted statements and newly approved community statements)
+    // Sort unvoted community statements to the top so the user immediately sees what is awaiting their vote
+    const displayStatements = [...approvedStatements].sort((a, b) => {
+      const aVoted = userVotes[a.id] !== undefined;
+      const bVoted = userVotes[b.id] !== undefined;
+      if (!aVoted && bVoted) return -1;
+      if (aVoted && !bVoted) return 1;
+      return a.id - b.id;
+    });
+
+    if (displayStatements.length === 0) {
       return (
         <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-          טרם נרשמו הצבעות בזירה זו.
+          טרם נרשמו או אושרו היגדים בזירה זו.
         </div>
       );
     }
 
     return (
-      <div className="divide-y divide-slate-100 dark:divide-slate-800 p-4 pt-1 max-h-80 overflow-y-auto space-y-2">
-        {votedStatements.map(st => {
+      <div className="divide-y divide-slate-100 dark:divide-slate-800 p-4 pt-1 max-h-96 overflow-y-auto space-y-2">
+        {displayStatements.map(st => {
           const voteRecord = userVotes[st.id];
-          const currentVote = voteRecord.vote;
+          const hasVoted = voteRecord !== undefined;
+          const currentVote = hasVoted ? voteRecord.vote : undefined;
           const isSeed = st.is_seed || st.is_anchor;
 
           return (
-            <div key={st.id} className="pt-3 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div 
+              key={st.id} 
+              className={`pt-3 pb-2.5 px-2 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                !hasVoted 
+                  ? 'bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/90 dark:border-purple-800/80 shadow-2xs' 
+                  : ''
+              }`}
+            >
               <div className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 flex-1 pl-2">
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                   <span className="text-[10px] text-slate-400 font-bold">#{st.id}</span>
                   {isSeed ? (
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40">
                       8 היגדי ברזל
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/40">
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
                       היגד קהילה
                     </span>
                   )}
+
+                  {!hasVoted ? (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 animate-pulse shadow-2xs">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>היגד חדש • טרם הצבעת</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded">
+                      הצבעתך נקלטה ✓
+                    </span>
+                  )}
                 </div>
-                {st.text}
+                <div className={!hasVoted ? 'font-bold text-slate-900 dark:text-white' : ''}>
+                  {st.text}
+                </div>
               </div>
 
               {/* Vote Buttons Mini */}
@@ -761,11 +796,16 @@ export const VoteView: React.FC<VoteViewProps> = ({
           >
             <div className="flex items-center gap-2 min-w-0">
               <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span className="truncate">ההצבעות שלי בזירה זו (8 היגדי ברזל + קהילה) — לצפייה ועדכון</span>
+              <span className="truncate">ההצבעות וההיגדים בזירה זו ({approvedStatements.length} היגדים)</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {unvotedCommunity.length > 0 && (
+                <span className="text-[10px] sm:text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-2 py-0.5 rounded-full animate-pulse border border-purple-300 dark:border-purple-800">
+                  {unvotedCommunity.length} חדשים להצבעה
+                </span>
+              )}
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                {totalVotedCount} הצבעות
+                הצבעת על {totalVotedCount} מתוך {approvedStatements.length}
               </span>
               {votesAccordionOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </div>
@@ -1006,7 +1046,7 @@ export const VoteView: React.FC<VoteViewProps> = ({
           <button
             type="button"
             onClick={onNavigateToDashboard}
-            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-sm transition whitespace-nowrap self-start sm:self-auto flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-sm transition whitespace-nowrap self-start sm:self-auto flex items-center gap-1.5 cursor-pointer"
           >
             <span>צפה במפת ההסכמות 📊</span>
           </button>
@@ -1234,18 +1274,28 @@ export const VoteView: React.FC<VoteViewProps> = ({
       )}
 
       {/* COLLAPSIBLE PREVIOUS VOTES (CHANGE VOTE ANYTIME) */}
-      {totalVotedCount > 0 && (
+      {(totalVotedCount > 0 || approvedStatements.length > 0) && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
           <button
             type="button"
             onClick={() => setVotesAccordionOpen(!votesAccordionOpen)}
             className="w-full px-5 py-3.5 flex items-center justify-between text-right text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer"
           >
-            <div className="flex items-center gap-2">
-              <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>ההצבעות שלי בזירה זו (8 היגדי ברזל + קהילה) — לצפייה ועדכון</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="truncate">ההצבעות וההיגדים בזירה זו ({approvedStatements.length} היגדים)</span>
             </div>
-            {votesAccordionOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            <div className="flex items-center gap-2 shrink-0">
+              {unvotedCommunity.length > 0 && (
+                <span className="text-[10px] sm:text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-2 py-0.5 rounded-full animate-pulse border border-purple-300 dark:border-purple-800">
+                  {unvotedCommunity.length} חדשים להצבעה
+                </span>
+              )}
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                הצבעת על {totalVotedCount} מתוך {approvedStatements.length}
+              </span>
+              {votesAccordionOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </div>
           </button>
 
           {votesAccordionOpen && renderVotesList()}

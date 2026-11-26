@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { TopicAnalytics } from '../types';
+import type { TopicAnalytics, Topic } from '../types';
 import { 
   Users, 
   Vote, 
@@ -25,11 +25,16 @@ interface ConsensusDashboardProps {
   onRefresh: () => void;
   onNavigateToVote: () => void;
   onNavigateToReport?: () => void;
+  onSelectTopic?: (topicId: string) => void;
+  activeTopic?: Topic | null;
 }
 
 export const ConsensusDashboard: React.FC<ConsensusDashboardProps> = ({
   analytics,
-  onNavigateToReport
+  onNavigateToVote,
+  onNavigateToReport,
+  onSelectTopic,
+  activeTopic
 }) => {
   const [filterMode, setFilterMode] = useState<'all' | 'iron' | 'community' | 'bridging' | 'divisive'>('all');
   const [searchQuery] = useState('');
