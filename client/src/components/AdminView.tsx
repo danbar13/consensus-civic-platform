@@ -124,6 +124,28 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [adminEmbedTheme, setAdminEmbedTheme] = useState<'auto' | 'dark' | 'light'>('auto');
   const [showExitWarningModal, setShowExitWarningModal] = useState(false);
+  const [resultsLastFetched, setResultsLastFetched] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    if (analytics) {
+      setResultsLastFetched(new Date());
+    }
+  }, [analytics]);
+
+  const formatResultsDate = (d: Date) => {
+    return d.toLocaleDateString('he-IL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatResultsTime = (d: Date) => {
+    return d.toLocaleTimeString('he-IL', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   const handleRequestNavigateToVote = () => {
     setShowExitWarningModal(true);
@@ -2576,36 +2598,190 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* TAB 6: CONSENSUS DASHBOARD (READ-ONLY VIEW FOR EDITORS - NO VOTING) */}
-      {adminSubTab === 'results' && (
-        <div className="space-y-4">
-          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs font-bold text-emerald-800 dark:text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>תצוגת עורכים וניתוח מעמיק: גרפים, היגדי גישור ומחלוקות (ללא הצבעות)</span>
+      {adminSubTab === 'results' && (() => {
+        const resultsTopic = analytics?.topic || currentTopic;
+        const resultsLifecycle = getTopicLifecycle(resultsTopic);
+        const isResultsActive = resultsLifecycle.status === 'active';
+        const isResultsClosed = resultsLifecycle.status === 'closed';
+        const activeWeeklyTopic = topics.find(t => {
+          const lc = getTopicLifecycle(t);
+          return lc.status === 'active' && lc.isWeekly;
+        }) || topics.find(t => getTopicLifecycle(t).status === 'active');
+
+        return (
+          <div className="space-y-4">
+            {/* Quick Topic Switcher Bar */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  צפייה במפת תוצאות עבור זירה:
+                </span>
+                <select
+                  value={resultsTopic.id}
+                  onChange={(e) => onSelectTopic(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500/30 transition"
+                >
+                  {topics.map(t => {
+                    const lc = getTopicLifecycle(t);
+                    const statusText = lc.status === 'active' ? '🟢 פעילה' : lc.status === 'closed' ? '🔒 סגורה' : lc.status === 'scheduled' ? '📅 מתוזמנת' : '📝 טיוטה';
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {statusText}: {t.title}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {onNavigateToVote && (
+                <button
+                  type="button"
+                  onClick={handleRequestNavigateToVote}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold cursor-pointer self-start sm:self-auto"
+                  title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
+                >
+                  <span>מעבר להצבעה בשאלון האזרחי ↗</span>
+                </button>
+              )}
             </div>
-            {onNavigateToVote && (
-              <button
-                onClick={handleRequestNavigateToVote}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
-                title="אזהרה: לחיצה תוציא אותך ממסך הניהול ותעביר אותך לשאלון האזרחי"
-              >
-                <span>מעבר להצבעה בשאלון האזרחי ↗</span>
-              </button>
+
+            {/* DYNAMIC PROMINENT STATUS CARD FOR EDITORS */}
+            {isResultsActive ? (
+              <div className="p-4 sm:p-5 rounded-2xl border-2 bg-gradient-to-l from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/50 shadow-sm space-y-3 animate-in fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-3.5 w-3.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm sm:text-base font-black text-emerald-950 dark:text-emerald-100">
+                          זירה פעילה באוויר • הצבעות תושבים נקלטות בזמן אמת
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white tracking-wider animate-pulse">
+                          LIVE
+                        </span>
+                      </div>
+                      <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium mt-0.5">
+                        מפת ההסכמות והמחלוקות משתקללת בכל רגע על בסיס הצבעות התושבים הפעילות
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResultsLastFetched(new Date());
+                      onStatementsChanged();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer self-start sm:self-auto shrink-0"
+                    title="רענן מפת תוצאות וקלוט הצבעות חדשות"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>רענן נתונים כעת</span>
+                  </button>
+                </div>
+
+                {/* Prominent Timestamp & Details */}
+                <div className="pt-2.5 border-t border-emerald-200/70 dark:border-emerald-800/70 flex flex-col md:flex-row md:items-center justify-between text-xs text-emerald-950 dark:text-emerald-200 gap-2">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>
+                      הנתונים מעודכנים לתאריך: <span className="underline decoration-emerald-500/60 font-black">{formatResultsDate(resultsLastFetched)}</span> בשעה <span className="underline decoration-emerald-500/60 font-black">{formatResultsTime(resultsLastFetched)}</span>
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-emerald-800 dark:text-emerald-300/80 font-medium">
+                    {resultsTopic.closes_at ? (
+                      <span>מועד סגירה מתוכנן של המשאל: {resultsLifecycle.closesAtFormatted}</span>
+                    ) : (
+                      <span>המשאל פתוח להצבעות ללא הגבלת זמן (עד סגירה יזומה ע"י העורך)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : isResultsClosed ? (
+              <div className="p-4 sm:p-5 rounded-2xl border-2 bg-gradient-to-l from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/50 shadow-sm space-y-3 animate-in fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0 shadow-xs">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm sm:text-base font-black text-rose-950 dark:text-rose-100">
+                          זירה סגורה (ארכיון תוצאות) • תמונת מצב סופית ונעולה
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white tracking-wider">
+                          ארכיון סגור
+                        </span>
+                      </div>
+                      <div className="text-xs text-rose-800 dark:text-rose-300 font-medium mt-0.5">
+                        המשאל נחתם. נתוני ההצבעה, מדד הקונצנזוס והיגדי הגישור שלהלן סופיים ולא יחולו בהם שינויים נוספים.
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeWeeklyTopic && activeWeeklyTopic.id !== resultsTopic.id && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectTopic(activeWeeklyTopic.id)}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer self-start sm:self-auto shrink-0"
+                    >
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>מעבר לתוצאות הזירה הפעילה באוויר ➔</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Closed Details & Lock timestamp */}
+                <div className="pt-2.5 border-t border-rose-200/70 dark:border-rose-800/70 flex flex-col md:flex-row md:items-center justify-between text-xs text-rose-950 dark:text-rose-200 gap-2">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Calendar className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span>
+                      המשאל נסגר ב-{resultsLifecycle.closesAtFormatted || 'מועד סגירת הזירה'} • תמונת מצב היסטורית נעולה
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-rose-800 dark:text-rose-300/80 font-medium">
+                    סך הכל נאספו במשאל זה {resultsTopic.stats?.totalVotes || analytics?.meta.totalVotesCast || 0} הצבעות מכלל קבוצות הזיקה
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Scheduled or Draft */
+              <div className="p-4 sm:p-5 rounded-2xl border-2 bg-slate-50 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 shadow-sm space-y-2 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <CalendarClock className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      {resultsLifecycle.status === 'scheduled' ? 'זירה מתוזמנת (טרם נפתחה להצבעת תושבים)' : 'זירת טיוטה במאגר'}
+                    </span>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      {resultsLifecycle.description}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Dashboard Display */}
+            {analytics ? (
+              <ConsensusDashboard
+                analytics={analytics}
+                onRefresh={onStatementsChanged}
+                onNavigateToVote={() => onNavigateToVote && onNavigateToVote()}
+              />
+            ) : (
+              <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+                טוען נתוני מפת תוצאות...
+              </div>
             )}
           </div>
-          {analytics ? (
-            <ConsensusDashboard
-              analytics={analytics}
-              onRefresh={onStatementsChanged}
-              onNavigateToVote={() => onNavigateToVote && onNavigateToVote()}
-            />
-          ) : (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
-              טוען נתוני מפת תוצאות...
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: CREATE NEW TOPIC */}
       {showNewTopicModal && (
