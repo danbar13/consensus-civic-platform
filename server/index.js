@@ -760,6 +760,15 @@ app.post('/api/ai/report', statementRateLimiter, async (req, res) => {
     const { topicId, templateType } = req.body;
     const topic = await cloudGetTopic(topicId);
     if (!topic) return res.status(404).json({ error: 'Topic not found' });
+
+    // Requirement: Editorial Brief and deep publication analyses can ONLY be generated for closed, locked arenas
+    const isClosed = Boolean(topic.closes_at && new Date(topic.closes_at) <= new Date());
+    if (!isClosed) {
+      return res.status(400).json({ 
+        error: 'הפקת תשתית נתונים וטיוטת עבודה לעורך מתאפשרת אך ורק עבור זירות סגורות שננעלו וירדו מהאוויר.' 
+      });
+    }
+
     const statements = await cloudGetStatements(topicId, 'approved');
     const votes = await cloudGetVotesForTopic(topicId);
     const analytics = computeTopicAnalytics(topicId, { topic, statements, votes });

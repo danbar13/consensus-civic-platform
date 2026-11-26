@@ -2585,42 +2585,131 @@ export const AdminView: React.FC<AdminViewProps> = ({
       })()}
 
       {/* TAB 5: AI NEWSPAPER REPORT GENERATOR */}
-      {adminSubTab === 'report' && (
-        <div className="space-y-4">
-          {/* Quick Topic Switcher Bar for Editorial Report */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                הפקת Editorial Brief עבור זירה:
-              </span>
-              <select
-                value={currentTopic.id}
-                onChange={(e) => onSelectTopic(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-purple-500/30 transition"
-              >
-                {topics.map(t => {
-                  const lc = getTopicLifecycle(t);
-                  const statusText = lc.status === 'active' ? '🟢 פעילה' : lc.status === 'closed' ? '🔒 סגורה' : lc.status === 'scheduled' ? '📅 מתוזמנת' : '📝 טיוטה';
-                  return (
-                    <option key={t.id} value={t.id}>
-                      {statusText}: {t.title}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </div>
+      {adminSubTab === 'report' && (() => {
+        const reportTopic = topics.find(t => t.id === currentTopic.id) || currentTopic;
+        const reportLifecycle = getTopicLifecycle(reportTopic);
+        const isTopicClosed = reportLifecycle.status === 'closed';
+        const closedTopics = topics.filter(t => getTopicLifecycle(t).status === 'closed');
 
-          {analytics ? (
-            <AIReportView topic={currentTopic} analytics={analytics} darkMode={darkMode} />
-          ) : (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
-              טוען נתוני דוח קונצנזוס...
+        return (
+          <div className="space-y-4">
+            {/* Quick Topic Switcher Bar for Editorial Report */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  הפקת Editorial Brief עבור זירה:
+                </span>
+                <select
+                  value={reportTopic.id}
+                  onChange={(e) => onSelectTopic(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-purple-500/30 transition"
+                >
+                  {topics.map(t => {
+                    const lc = getTopicLifecycle(t);
+                    const statusText = lc.status === 'closed' 
+                      ? '🔒 מוכנה להפקה (סגורה)' 
+                      : lc.status === 'active' 
+                      ? '🟢 פעילה באוויר (יש לנעול תחילה)' 
+                      : '⏳ ללא תזמון במאגר';
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {statusText}: {t.title}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {isTopicClosed ? (
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-300 dark:border-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>זירה סגורה ונעולה • נתוני ארכיון סופיים וחתומים</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-3 py-1 rounded-xl border border-amber-300 dark:border-amber-800">
+                  <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>נעול להפקה עיתונאית (הזירה טרם נסגרה)</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {isTopicClosed ? (
+              analytics ? (
+                <AIReportView topic={reportTopic} analytics={analytics} darkMode={darkMode} />
+              ) : (
+                <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+                  טוען נתוני דוח קונצנזוס...
+                </div>
+              )
+            ) : (
+              /* Dedicated Gating Screen when topic is not closed */
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 shadow-md border-2 border-amber-300 dark:border-amber-800/60 space-y-6 text-center max-w-3xl mx-auto my-6 animate-in fade-in">
+                <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-inner">
+                  <Lock className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>שער עריכה עיתונאית • מותר לזירות סגורות בלבד</span>
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                    הפקת תשתית נתונים וטיוטת עבודה מותנית בנעילת הזירה
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl mx-auto">
+                    על פי הנוהל העיתונאי, כל עוד הזירה פעילה באוויר הצבעות התושבים ממשיכות להיקלט בזמן אמת והנתונים דינמיים.
+                    הפקת ה-Editorial Brief, האינפוגרפיקה לדפוס וטיוטת הכתבה לפרסום מתאפשרות <strong>אך ורק על זירות סגורות שננעלו וירדו מהאוויר</strong>.
+                  </p>
+                </div>
+
+                {/* Status chip for current topic */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2 flex-wrap">
+                  <span>סטטוס הזירה המוצגת ("{reportTopic.title}"):</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${reportLifecycle.badgeClass}`}>
+                    {reportLifecycle.label}
+                  </span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  {/* Button 1: Lock and close now */}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleTopicClosed(reportTopic)}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>נעל וסגור את הזירה כעת להפקת כתבה</span>
+                  </button>
+
+                  {/* Button 2: If there is a closed arena in the archive, switch to it */}
+                  {closedTopics.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectTopic(closedTopics[0].id)}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>עבור לזירה סגורה בארכיון ("{closedTopics[0].title}") ➔</span>
+                    </button>
+                  )}
+
+                  {/* Button 3: View live results map */}
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab('results')}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <BarChart3 className="w-4 h-4 text-emerald-500" />
+                    <span>צפה במפת התוצאות החיה (בזמן אמת)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TAB 6: CONSENSUS DASHBOARD (READ-ONLY VIEW FOR EDITORS - NO VOTING) */}
       {adminSubTab === 'results' && (() => {
