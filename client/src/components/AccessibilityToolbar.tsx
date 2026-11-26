@@ -85,11 +85,11 @@ export const AccessibilityToolbar: React.FC<AccessibilityToolbarProps> = ({ onOp
       {/* Floating Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-5 left-5 z-40 p-3.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xl border-2 border-white dark:border-slate-800 focus:outline-hidden focus:ring-4 focus:ring-amber-300 dark:focus:ring-amber-600 transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-40 p-2.5 sm:p-3.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xl border-2 border-white dark:border-slate-800 focus:outline-hidden focus:ring-4 focus:ring-amber-300 dark:focus:ring-amber-600 transition-transform hover:scale-105 active:scale-95"
         aria-label="תפריט נגישות"
         title="תפריט נגישות והתאמות קריאה"
       >
-        <Accessibility className="w-6 h-6 stroke-[2.5]" />
+        <Accessibility className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
         {hasActiveModifiers && (
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-600 border-2 border-white" />
         )}

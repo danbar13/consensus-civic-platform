@@ -474,7 +474,7 @@ export function App() {
 
       {/* Footer */}
       {!isEmbed && (
-        <footer className="bg-slate-900 dark:bg-slate-950 text-slate-400 text-xs py-10 border-t border-slate-800 transition-colors">
+        <footer className="bg-slate-900 dark:bg-slate-950 text-slate-400 text-xs py-8 pb-24 sm:py-10 sm:pb-12 border-t border-slate-800 transition-colors">
           <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
             
             {/* YomYom Logo in Footer */}
