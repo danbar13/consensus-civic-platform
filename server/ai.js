@@ -660,8 +660,23 @@ function simulatedHebrewReport(topic, analytics, templateType) {
   if (topDivisive.length > 0) {
     divisiveSection = topDivisive.map((d, idx) => {
       const score = d.divisiveScore || 65;
-      return `> **"${d.text}"** (מדד קיטוב ופילוג: ${score}%)
-היגד זה ממחיש את מוקד החיכוך המרכזי במשאל סביב "${topic.title}", כאשר נרשמו פערים עמוקים באחוזי התמיכה בין קבוצות הזיקה השונות.`;
+      let groupDetails = '';
+      if (d.groupBreakdown && topic.groups && topic.groups.length >= 2) {
+        const sortedGroups = [...topic.groups].sort((g1, g2) => {
+          const s1 = d.groupBreakdown[g1.id]?.supportPercent || 0;
+          const s2 = d.groupBreakdown[g2.id]?.supportPercent || 0;
+          return s2 - s1;
+        });
+        const highest = sortedGroups[0];
+        const lowest = sortedGroups[sortedGroups.length - 1];
+        const highPct = d.groupBreakdown[highest.id]?.supportPercent || 0;
+        const lowPct = d.groupBreakdown[lowest.id]?.supportPercent || 0;
+        if (highPct > 0 || lowPct > 0) {
+          groupDetails = `\n   > **פילוח עמדות בין הכובעים:** נרשם שסע עמוק של ${Math.abs(highPct - lowPct)}% בין המחנות: תמיכה של ${highPct}% בקרב "${highest.label}", לעומת ${lowPct}% בלבד בקרב "${lowest.label}".`;
+        }
+      }
+      return `${idx + 1}. **"${d.text}"** (מדד קיטוב ופילוג: ${score}%):
+   היגד זה ממחיש את מוקד החיכוך המרכזי במשאל סביב "${topic.title}".${groupDetails}`;
     }).join('\n\n');
   } else {
     divisiveSection = `לא נרשמו מוקדי קיטוב חריגים במשאל זה; מרבית ההיגדים זוכים לדפוסי הצבעה מתונים ומאוזנים בין הקבוצות.`;
