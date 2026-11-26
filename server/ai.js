@@ -55,8 +55,9 @@ async function callGeminiWithRetryAndFallback({
           bodyPayload.generationConfig = { responseMimeType };
         }
 
+        const timeoutMs = action === 'ConsensusReport' ? 15000 : 4000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         let res;
         try {
@@ -632,12 +633,63 @@ function simulatedHebrewModeration(text, existingStatements = []) {
 
 function simulatedHebrewReport(topic, analytics, templateType) {
   const isPress = templateType === 'press';
-  const topBridging = analytics.topBridging.slice(0, 3);
-  const topDivisive = analytics.topDivisive.slice(0, 2);
+  const topBridging = (analytics.topBridging || []).slice(0, 3);
+  const topDivisive = (analytics.topDivisive || []).slice(0, 2);
 
-  const b1 = topBridging[0] || { text: 'הקמת חניון חנה וסע', bridgingScore: 85, votesSummary: { overallSupportPercent: 88 } };
-  const b2 = topBridging[1] || { text: 'צביעת הכנסות לקרן ייעודית', bridgingScore: 82, votesSummary: { overallSupportPercent: 86 } };
-  const d1 = topDivisive[0] || { text: 'איסור מוחלט על חניה ללא תו תושב', divisiveScore: 68 };
+  // Dynamic group participant breakdown
+  const groupBreakdownLines = (topic.groups || []).map(g => {
+    const count = analytics.meta.groupParticipantCounts?.[g.id] || 0;
+    return `  - ${g.label}: ${count} משתתפים`;
+  }).join('\n') || '  - כלל קבוצות הזיקה והתושבים';
+
+  // Dynamic bridging statements analysis
+  let bridgingSection = '';
+  if (topBridging.length > 0) {
+    bridgingSection = topBridging.map((b, idx) => {
+      const support = b.votesSummary?.overallSupportPercent || 80;
+      const score = b.bridgingScore || 75;
+      return `${idx + 1}. **"${b.text}"** (תמיכה כוללת של ${support}%, ציון גשר: ${score}%):
+   > **תובנה לעורך:** קיים קונצנזוס מלא (מעל 75% תמיכה בקרב כל קבוצות הזיקה). הציבור האילתי מאוחד סביב מנגנון זה כעוגן הסכמה אופרטיבי בסוגיית "${topic.title}".`;
+    }).join('\n\n');
+  } else {
+    bridgingSection = `טרם זוהו הצהרות גשר שחצו את רף ה-75% בכלל הקבוצות. עם קליטת הצבעות נוספות של תושבים, האלגוריתם יזהה עוגני הסכמה מתהווים.`;
+  }
+
+  // Dynamic divisive statements analysis
+  let divisiveSection = '';
+  if (topDivisive.length > 0) {
+    divisiveSection = topDivisive.map((d, idx) => {
+      const score = d.divisiveScore || 65;
+      return `> **"${d.text}"** (מדד קיטוב ופילוג: ${score}%)
+היגד זה ממחיש את מוקד החיכוך המרכזי במשאל סביב "${topic.title}", כאשר נרשמו פערים עמוקים באחוזי התמיכה בין קבוצות הזיקה השונות.`;
+    }).join('\n\n');
+  } else {
+    divisiveSection = `לא נרשמו מוקדי קיטוב חריגים במשאל זה; מרבית ההיגדים זוכים לדפוסי הצבעה מתונים ומאוזנים בין הקבוצות.`;
+  }
+
+  // Dynamic questions for the municipality / editorial angle
+  const b1Text = topBridging[0]?.text;
+  const b2Text = topBridging[1]?.text || topBridging[0]?.text;
+  const d1Text = topDivisive[0]?.text;
+
+  const questionsList = [];
+  if (b1Text) {
+    questionsList.push(`1. **כיצד מתכוונת עיריית אילת לאמץ את עוגן ההסכמה המוביל: "${b1Text}"**, שזכה לתמיכה רחבה של ${topBridging[0].votesSummary?.overallSupportPercent || 85}% בקרב כלל המגזרים?`);
+  } else {
+    questionsList.push(`1. **כיצד מתכוונת עיריית אילת לפעול לאור ממצאי המשאל בסוגיית "${topic.title}"?**`);
+  }
+
+  if (b2Text && b2Text !== b1Text) {
+    questionsList.push(`2. **אילו צעדים מעשיים יינקטו לקידום הפתרון: "${b2Text}"**, הזוכה לגיבוי מוצק מתושבים ומבעלי העניין בעיר?`);
+  } else {
+    questionsList.push(`2. **אילו צעדים תקציביים ואופרטיביים מתוכננים לתת מענה לדרישות התושבים בנושא "${topic.title}"?**`);
+  }
+
+  if (d1Text) {
+    questionsList.push(`3. **כיצד בכוונת הנהלת העירייה לגשר על הפערים סביב הסוגיה המקטבת: "${d1Text}"**, כדי למנוע החרפת חיכוכים בקהילה?`);
+  } else {
+    questionsList.push(`3. **באילו לוחות זמנים צפויה להתקבל החלטת מדיניות מוסדרת לרווחת תושבי העיר?**`);
+  }
 
   if (isPress) {
     return `# תשתית נתונים וטיוטת עבודה לעורך (Editorial Brief): ${topic.title}
@@ -648,40 +700,29 @@ function simulatedHebrewReport(topic, analytics, templateType) {
 - **סך כל ההצבעות שנקלטו:** ${analytics.meta.totalVotesCast} הצבעות
 - **מדד הקונצנזוס העירוני המשוקלל:** **${analytics.meta.consensusIndex}%**
 - **פילוח השתתפות לפי כובע/מגזר:**
-  - תושבי שכונות המגורים: ${analytics.meta.groupParticipantCounts?.residents || 25} משתתפים
-  - בעלי עסקים ועובדי אזור התעשייה: ${analytics.meta.groupParticipantCounts?.business || 20} משתתפים
-  - ענף התיירות ומבקרים: ${analytics.meta.groupParticipantCounts?.tourism || 15} משתתפים
+${groupBreakdownLines}
 
 ---
 
 ### 🤝 הצהרות הגשר המובילות (מעל 75% הסכמה בכל הקבוצות)
-האלגוריתם החישובי זיהה הסכמה רחבה ומובהקת החוצה את כל המגזרים בשתי סוגיות ליבה:
+האלגוריתם החישובי זיהה הסכמה רחבה ומובהקת החוצה את כל המגזרים בסוגיות הליבה של "${topic.title}":
 
-1. **הקמת חניון "חנה וסע" מוסדר בכניסה לעיר עם שאטלים (תמיכה כוללת של ${b1.votesSummary?.overallSupportPercent || 88}%, ציון גשר: ${b1.bridgingScore}%):**
-   *"${b1.text}"*
-   > **תובנה לעורך:** קיים קונצנזוס מלא (מעל 85% בכל שלוש הקבוצות). הציבור האילתי דורש חלופה תשתיתית מוסדרת בכניסה לעיר כמענה כולל לבעיית החניה.
-
-2. **צביעת הכנסות האכיפה לקרן עירונית שקופה (תמיכה כוללת של ${b2.votesSummary?.overallSupportPercent || 85}%, ציון גשר: ${b2.bridgingScore}%):**
-   *"${b2.text}"*
-   > **תובנה לעורך:** התושבים ובעלי העסקים מוכנים לקבל אכיפה מוגברת, אך מתנים זאת בשקיפות מלאה ובהשקעת כל שקל ישירות בשכונות ובהצללת מדרכות.
+${bridgingSection}
 
 ---
 
 ### ⚡ נקודות המחלוקת המרכזיות (מוקדי הקיטוב)
-ההיגד המקטב ביותר במשאל הדגים את השסע בין צורכי המגורים לצורכי המסחר:
-> **"${d1.text}"** (מדד קיטוב ופילוג: ${d1.divisiveScore}%)
-בעוד שבקרב תושבי השכונות נרשמה תמיכה סוחפת של 85%, בקרב ענפי המסחר והתיירות נרשמה התנגדות חריפה מתוך חשש לפגיעה ישירה בפעילות הכלכלית ובתיירות.
+${divisiveSection}
 
 ---
 
 ### ❓ 3 שאלות מפתח לעורך עבור תגובת עיריית אילת
-1. **מדוע מתעכב פרויקט "חנה וסע" בכניסה לעיר**, כאשר סקר העמדות מוכיח תמיכה של 88% מכלל המגזרים?
-2. **האם הנהלת העירייה תסכים להקים "קרן חניה ייעודית ושקופה"** שתשקיע את כספי האכיפה ישירות בשיפור המדרכות וההצללה בשכונות?
-3. **כיצד מתכוונת העירייה לגשר על הפער בין דרישת השכונות להגבלת חניה גורפת לבין צורכי העסקים והתיירות?**
+${questionsList.join('\n')}
 
 *הופק במערכת "המצפן האילתי" • דנבר (DANBAR) בשיתוף "ערב ערב באילת" ו-yomyom.net*`;
   }
 
+  // Mediation format
   return `# נייר עמדה אסטרטגי ומפת דרכים ליישוב סכסוך: ${topic.title}
 **גוף מוביל:** ${topic.organization} | **תאריך:** ${new Date().toLocaleDateString('he-IL')}
 **מסמך רקע לעבודת שולחן עגול וועדת גישור קהילתית**
@@ -689,21 +730,17 @@ function simulatedHebrewReport(topic, analytics, templateType) {
 ---
 
 ## 1. תמונת מצב ואבחון הדינמיקה הקבוצתית
-ניתוח ${analytics.meta.totalVotesCast} הצבעות של ${analytics.meta.totalParticipants} משתתפים מעלה כי הסכסוך אינו משחק סכום-אפס.
+ניתוח ${analytics.meta.totalVotesCast} הצבעות של ${analytics.meta.totalParticipants} משתתפים בסוגיית "${topic.title}" מעלה כי הסכסוך אינו משחק סכום-אפס.
 קיים **מדד קונצנזוס של ${analytics.meta.consensusIndex}%**, המצביע על מרחב הסכמה רחב (ZOPA – Zone of Possible Agreement) שטרם תורגם להחלטות אופרטיביות.
 
 ## 2. עוגני ההסכמה (Common Ground) המהווים בסיס לאמנה מחייבת
-הקבוצות השונות הגיעו להסכמה פה-אחד על העקרונות הבאים:
-* **פתרון תשתיתי מקדים קודם לסנקציות:** כל הצדדים מסכימים כי יש להעמיד חלופה מוסדרת ונגישה בטרם החמרת הקנסות והגרירה.
-* **עקרון ההדדיות והשקיפות:** ההכנסות מכל מנגנון הסדרה ינותבו לרווחת המרחב הציבורי המשותף.
+${topBridging.length > 0 ? topBridging.map(b => `* **${b.text}:** תמיכה חוצת-מחנות (${b.votesSummary?.overallSupportPercent || 80}%) המהווה עוגן אופרטיבי מוסכם בסוגיית ${topic.title}.`).join('\n') : `* קיימת הסכמה רחבה על הצורך בהסדרה כוללת, מאוזנת ושקופה בסוגיית ${topic.title}.`}
 
 ## 3. מיפוי נקודות החיכוך ואינטרסים מנחים
-* **אינטרס השכנים:** שקט, ביטחון אישי, ונגישות לחניה סמוך לבית ללא חיפוש ממושך.
-* **אינטרס בעלי העסקים והתיירות:** משיכת קהל, אפשרות פריקה וטעינה, ומניעת תחושת ניכור כלפי מבקרים.
-* **מוקד הפיצוץ הפוטנציאלי:** צעדי אכיפה בינאריים ("שחור/לבן") ללא תקופת הסתגלות.
+${topDivisive.length > 0 ? topDivisive.map(d => `* **מוקד החיכוך המרכזי:** "${d.text}" (מדד קיטוב: ${d.divisiveScore}%).`).join('\n') : `* חילוקי דעות סביב מנגנוני היישום, חלוקת הנטל ולוחות הזמנים.`}
 
 ## 4. מפת דרכים ליישום מיידי (Roadmap for Compromise)
-1. **שלב א' (מיידי):** הקמת צוות יישום משותף של נציגי השכונות, נציגי המסחר והעירייה.
-2. **שלב ב' (פיילוט 90 יום):** הפעלת מתחם חניה ייעודי בכניסה לעיר עם שאטלים ממונעים, תוך הגבלת זמני חניה מבוקרים באזורי החיכוך.
+1. **שלב א' (מיידי):** הקמת צוות יישום משותף של נציגי כלל קבוצות הזיקה ועיריית אילת בסוגיית "${topic.title}".
+2. **שלב ב' (פיילוט 90 יום):** אימוץ עוגני ההסכמה שזכו לתמיכת רוב מובהק (${topBridging[0]?.text || 'ההסכמות המובילות'}) במסגרת פיילוט מבוקר ומדוד.
 3. **שלב ג' (הערכה ועדכון):** מדידה חוזרת בפלטפורמת הקונצנזוס לקבלת משוב הציבור ובחינת השפעת הפיילוט בשטח.`;
 }

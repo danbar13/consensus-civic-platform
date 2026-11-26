@@ -2587,6 +2587,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {/* TAB 5: AI NEWSPAPER REPORT GENERATOR */}
       {adminSubTab === 'report' && (
         <div className="space-y-4">
+          {/* Quick Topic Switcher Bar for Editorial Report */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                הפקת Editorial Brief עבור זירה:
+              </span>
+              <select
+                value={currentTopic.id}
+                onChange={(e) => onSelectTopic(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-purple-500/30 transition"
+              >
+                {topics.map(t => {
+                  const lc = getTopicLifecycle(t);
+                  const statusText = lc.status === 'active' ? '🟢 פעילה' : lc.status === 'closed' ? '🔒 סגורה' : lc.status === 'scheduled' ? '📅 מתוזמנת' : '📝 טיוטה';
+                  return (
+                    <option key={t.id} value={t.id}>
+                      {statusText}: {t.title}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
           {analytics ? (
             <AIReportView topic={currentTopic} analytics={analytics} darkMode={darkMode} />
           ) : (
